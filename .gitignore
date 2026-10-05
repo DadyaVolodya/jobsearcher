@@ -1,0 +1,11 @@
+.idea/
+*.iml
+.DS_Store
+.env
+backend/.gradle/
+backend/build/
+backend/out/
+storage/uploads/*
+!storage/uploads/.gitkeep
+*.log
+target/

@@ -1,0 +1,36 @@
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.oauth2.resource.servlet.OAuth2ResourceServerAutoConfiguration
+  datasource:
+    url: jdbc:postgresql://localhost:55432/jobsearcher
+    username: jobsearcher
+    password: jobsearcher
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    clean-disabled: false
+
+app:
+  security:
+    permit-all: true
+  grade-change-cooldown-days: 90
+  storage:
+    type: local
+    local-root: ${java.io.tmpdir}/jobsearcher-test-uploads
+  llm:
+    ollama:
+      base-url: http://localhost
+      api-key: ""
+      model: test
+    infereco:
+      base-url: http://localhost
+      api-key: ""
+      models: []
+    timeout-ms: 1000
+
+logging:
+  level:
+    root: WARN
