@@ -82,6 +82,11 @@ public class CandidateProfile {
     @Column(name = "fsp_participant_id")
     private String fspParticipantId;
 
+    /** Грейд из данных ФСП (олимпиады/достижения), влияет на приоритет в поиске. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "fsp_grade")
+    private Grade fspGrade;
+
     @Column(name = "privacy_hide_contacts", nullable = false)
     private boolean privacyHideContacts = true;
 

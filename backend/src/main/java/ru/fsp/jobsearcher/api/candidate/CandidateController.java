@@ -51,8 +51,8 @@ public class CandidateController {
     }
 
     @GetMapping("/fsp")
-    public List<FspAchievement> fsp() {
-        return candidateService.achievements(candidateService.requireMine(securityUtils.requireCurrentUser()).getId());
+    public CandidateService.FspSummary fsp() {
+        return candidateService.fspSummary(securityUtils.requireCurrentUser());
     }
 
     @PostMapping("/fsp")
@@ -63,7 +63,8 @@ public class CandidateController {
                 body.get("title") == null ? null : String.valueOf(body.get("title")),
                 body.get("eventName") == null ? null : String.valueOf(body.get("eventName")),
                 body.get("place") == null ? null : ((Number) body.get("place")).intValue(),
-                body.get("points") == null ? 0 : ((Number) body.get("points")).intValue()
+                body.get("points") == null ? 0 : ((Number) body.get("points")).intValue(),
+                body.get("fspGrade") == null ? null : String.valueOf(body.get("fspGrade"))
         );
     }
 }

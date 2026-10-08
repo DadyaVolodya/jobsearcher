@@ -100,9 +100,20 @@ public class CandidateService {
     }
 
     @Transactional
-    public FspAchievement linkFspStub(CurrentUser user, String fspId, String title, String eventName, Integer place, int points) {
+    public FspAchievement linkFspStub(
+            CurrentUser user,
+            String fspId,
+            String title,
+            String eventName,
+            Integer place,
+            int points,
+            String fspGrade
+    ) {
         CandidateProfile p = requireMine(user);
         p.setFspParticipantId(fspId);
+        if (fspGrade != null && !fspGrade.isBlank()) {
+            p.setFspGrade(Grade.from(fspGrade));
+        }
         p.touch();
         candidateProfileRepository.save(p);
         FspAchievement a = new FspAchievement();
@@ -112,9 +123,33 @@ public class CandidateService {
         a.setTitle(title == null ? "Достижение ФСП" : title);
         a.setEventName(eventName);
         a.setPlace(place);
-        a.setPoints(points);
+        a.setPoints(Math.max(0, points));
+        a.setGradeHint(fspGrade == null || fspGrade.isBlank() ? null : Grade.from(fspGrade).name());
         a.setVerified(true);
         return fspAchievementRepository.save(a);
+    }
+
+    @Transactional(readOnly = true)
+    public FspSummary fspSummary(CurrentUser user) {
+        CandidateProfile p = requireMine(user);
+        List<FspAchievement> list = fspAchievementRepository.findByCandidateId(p.getId());
+        int points = list.stream().mapToInt(FspAchievement::getPoints).sum();
+        return new FspSummary(
+                p.getFspParticipantId(),
+                p.getFspGrade() == null ? null : p.getFspGrade().name(),
+                points,
+                list.size(),
+                list
+        );
+    }
+
+    public record FspSummary(
+            String fspParticipantId,
+            String fspGrade,
+            int totalPoints,
+            int achievementsCount,
+            List<FspAchievement> achievements
+    ) {
     }
 
     public record UpdateRequest(

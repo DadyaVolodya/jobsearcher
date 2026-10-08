@@ -35,6 +35,10 @@ public class FspAchievement {
     @Column(nullable = false)
     private int points;
 
+    /** Подсказка грейда по достижению (JUNIOR/MIDDLE/SENIOR). */
+    @Column(name = "grade_hint")
+    private String gradeHint;
+
     @Column(name = "achieved_at")
     private LocalDate achievedAt;
 

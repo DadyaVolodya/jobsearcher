@@ -57,9 +57,16 @@ Local: `X-User-Email` + `X-User-Role`
 | GET/PUT | `/candidate/profile` | `gradeConfirmed` - официально подтверждён ли грейд |
 | POST | `/candidate/publish` | `{published:true}` после согласий + категории |
 | POST | `/candidate/resume` | multipart `file` → NLP parse (Ollama/Infereco) |
-| GET/POST | `/candidate/fsp` | stub достижений |
+| GET | `/candidate/fsp` | summary: `fspParticipantId`, `fspGrade`, `totalPoints`, `achievements[]` |
+| POST | `/candidate/fsp` | `{fspParticipantId, title?, eventName?, place?, points, fspGrade}` |
 
 `categoryCode` = `IT:BACKEND:JUNIOR` только после теста. Резюме категорию не ставит.
+
+### ФСП в поиске (обязательно для UI)
+- Участники с `fspLinked=true` / `fspPoints` / `fspGrade` **выше в выдаче** matching и банка.
+- В карточке кандидата показывайте: грейд ФСП, сумму баллов, число достижений.
+- В `explain[0]` обычно «Приоритет ФСП…».
+- Фильтр банка: `GET /matching/candidates?requireFsp=true`.
 
 ---
 
@@ -130,8 +137,8 @@ Local: `X-User-Email` + `X-User-Role`
 |--------|------|
 | GET/PUT | `/employer/profile` |
 | GET/POST | `/employer/needs` | salaryFrom/To обязательны |
-| GET | `/matching/needs/{needId}?stack=` | candidates + explain |
-| GET | `/matching/candidates?...` | банк без контактов |
+| GET | `/matching/needs/{needId}?stack=` | candidates + explain; поля `fspPoints`, `fspGrade`, `fspLinked` |
+| GET | `/matching/candidates?...&requireFsp=` | банк: `matchScore`, `fspPoints`, `fspGrade`, `fspAchievementsCount`, `fspLinked` |
 
 ---
 

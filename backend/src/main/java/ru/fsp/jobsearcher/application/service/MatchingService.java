@@ -49,11 +49,20 @@ public class MatchingService {
                     continue;
                 }
             }
-            int fspPoints = fspAchievementRepository.findByCandidateId(c.getId()).stream()
-                    .mapToInt(FspAchievement::getPoints).sum();
+            List<FspAchievement> achievements = fspAchievementRepository.findByCandidateId(c.getId());
+            int fspPoints = achievements.stream().mapToInt(FspAchievement::getPoints).sum();
+            Grade fspGrade = c.getFspGrade();
             double vectorScore = MatchingRanker.cosine(need.getNeedVector(), c.getSurveyVector());
             double score = MatchingRanker.totalScore(
-                    need.getNeedVector(), c.getSurveyVector(), need.getStack(), c.getStack(), c.getTestScore(), fspPoints);
+                    need.getNeedVector(),
+                    c.getSurveyVector(),
+                    need.getStack(),
+                    c.getStack(),
+                    c.getTestScore(),
+                    fspPoints,
+                    fspGrade,
+                    need.getGrade()
+            );
             List<String> explain = MatchingRanker.explain(
                     c.getSpecializationCode(),
                     c.getAssignedGrade() == null ? "?" : c.getAssignedGrade().name(),
@@ -61,9 +70,19 @@ public class MatchingService {
                     c.getStack(),
                     c.getTestScore(),
                     fspPoints,
+                    fspGrade,
                     vectorScore
             );
-            ranked.add(new MatchingRanker.RankedCandidate(c.getId().toString(), c.getCategoryCode(), score, explain));
+            boolean fspLinked = c.getFspParticipantId() != null || fspPoints > 0 || fspGrade != null;
+            ranked.add(new MatchingRanker.RankedCandidate(
+                    c.getId().toString(),
+                    c.getCategoryCode(),
+                    score,
+                    fspPoints,
+                    fspGrade == null ? null : fspGrade.name(),
+                    fspLinked,
+                    explain
+            ));
         }
         ranked = MatchingRanker.sort(ranked);
 
@@ -85,18 +104,38 @@ public class MatchingService {
         List<CandidateProfile> list = candidateProfileRepository.searchPublished(industry, specialization, g, category);
         List<CandidatePublicView> result = new ArrayList<>();
         for (CandidateProfile c : list) {
-            int fspPoints = fspAchievementRepository.findByCandidateId(c.getId()).stream()
-                    .mapToInt(FspAchievement::getPoints).sum();
-            if (requireFsp && fspPoints <= 0) {
+            List<FspAchievement> achievements = fspAchievementRepository.findByCandidateId(c.getId());
+            int fspPoints = achievements.stream().mapToInt(FspAchievement::getPoints).sum();
+            Grade fspGrade = c.getFspGrade();
+            boolean fspLinked = c.getFspParticipantId() != null || fspPoints > 0 || fspGrade != null;
+            if (requireFsp && !fspLinked) {
                 continue;
             }
             if (stack != null && !stack.isBlank()
                     && c.getStack().stream().noneMatch(s -> s.equalsIgnoreCase(stack))) {
                 continue;
             }
-            result.add(CandidatePublicView.from(c, fspPoints, false));
+            double matchScore = MatchingRanker.totalScore(
+                    Map.of(),
+                    c.getSurveyVector() == null ? Map.of() : c.getSurveyVector(),
+                    List.of(),
+                    c.getStack(),
+                    c.getTestScore(),
+                    fspPoints,
+                    fspGrade,
+                    g
+            );
+            // Банк без needVector: приоритет ФСП + тест + profileScore
+            double bankScore = matchScore + c.getProfileScore() * 0.1;
+            result.add(CandidatePublicView.from(c, fspPoints, fspGrade, achievements.size(), bankScore, false));
         }
-        result.sort((a, b) -> Double.compare(b.profileScore(), a.profileScore()));
+        result.sort((a, b) -> {
+            int byScore = Double.compare(b.matchScore(), a.matchScore());
+            if (byScore != 0) {
+                return byScore;
+            }
+            return Integer.compare(b.fspPoints(), a.fspPoints());
+        });
         return result;
     }
 
@@ -118,12 +157,24 @@ public class MatchingService {
             List<String> stack,
             double testScore,
             double profileScore,
+            double matchScore,
             int fspPoints,
+            String fspGrade,
+            int fspAchievementsCount,
+            boolean fspLinked,
             String city,
             String email,
             String phone
     ) {
-        static CandidatePublicView from(CandidateProfile c, int fspPoints, boolean revealContacts) {
+        static CandidatePublicView from(
+                CandidateProfile c,
+                int fspPoints,
+                Grade fspGrade,
+                int achievementsCount,
+                double matchScore,
+                boolean revealContacts
+        ) {
+            boolean linked = c.getFspParticipantId() != null || fspPoints > 0 || fspGrade != null;
             return new CandidatePublicView(
                     c.getId(),
                     c.getFullName(),
@@ -134,7 +185,11 @@ public class MatchingService {
                     c.getStack(),
                     c.getTestScore(),
                     c.getProfileScore(),
+                    matchScore,
                     fspPoints,
+                    fspGrade == null ? null : fspGrade.name(),
+                    achievementsCount,
+                    linked,
                     c.getCity(),
                     revealContacts ? null : null,
                     revealContacts ? null : null

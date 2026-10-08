@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import ru.fsp.jobsearcher.domain.enums.Grade;
 
 public final class MatchingRanker {
 
@@ -17,6 +18,9 @@ public final class MatchingRanker {
             String candidateId,
             String categoryCode,
             double score,
+            int fspPoints,
+            String fspGrade,
+            boolean fspLinked,
             List<String> explain
     ) {
     }
@@ -54,11 +58,46 @@ public final class MatchingRanker {
         return (double) hit / need.size();
     }
 
-    public static double fspBonus(int points) {
-        if (points <= 0) {
+    /**
+     * Участники ФСП с грейдом/достижениями заметно выше в выдаче.
+     */
+    public static double fspBonus(int points, Grade fspGrade, Grade needGrade) {
+        boolean linked = points > 0 || fspGrade != null;
+        if (!linked) {
             return 0.0;
         }
-        return Math.min(0.2, points / 500.0);
+        double bonus = 0.18;
+        bonus += Math.min(0.22, Math.max(0, points) / 400.0);
+        if (fspGrade != null && needGrade != null) {
+            if (fspGrade.level() >= needGrade.level()) {
+                bonus += 0.12;
+            } else {
+                bonus += 0.05;
+            }
+        } else if (fspGrade != null) {
+            bonus += 0.08;
+        }
+        return Math.min(0.45, bonus);
+    }
+
+    public static double fspBonus(int points) {
+        return fspBonus(points, null, null);
+    }
+
+    public static double totalScore(
+            Map<String, Double> needVector,
+            Map<String, Double> candidateVector,
+            List<String> needStack,
+            List<String> candidateStack,
+            double testScore,
+            int fspPoints,
+            Grade fspGrade,
+            Grade needGrade
+    ) {
+        double vector = cosine(needVector, candidateVector);
+        double stack = stackOverlap(needStack, candidateStack);
+        double test = Math.max(0.0, Math.min(1.0, testScore));
+        return 0.40 * vector + 0.22 * stack + 0.18 * test + fspBonus(fspPoints, fspGrade, needGrade);
     }
 
     public static double totalScore(
@@ -69,10 +108,7 @@ public final class MatchingRanker {
             double testScore,
             int fspPoints
     ) {
-        double vector = cosine(needVector, candidateVector);
-        double stack = stackOverlap(needStack, candidateStack);
-        double test = Math.max(0.0, Math.min(1.0, testScore));
-        return 0.45 * vector + 0.25 * stack + 0.20 * test + fspBonus(fspPoints);
+        return totalScore(needVector, candidateVector, needStack, candidateStack, testScore, fspPoints, null, null);
     }
 
     public static List<String> explain(
@@ -82,15 +118,17 @@ public final class MatchingRanker {
             List<String> candidateStack,
             double testScore,
             int fspPoints,
+            Grade fspGrade,
             double vectorScore
     ) {
         List<String> reasons = new ArrayList<>();
-        reasons.add("Категория: " + specialization + " / " + grade);
-        if (fspPoints > 0) {
-            reasons.add("Есть подтверждённые достижения ФСП (+" + fspPoints + " баллов)");
+        if (fspPoints > 0 || fspGrade != null) {
+            String gradePart = fspGrade == null ? "" : (", грейд ФСП " + fspGrade.name());
+            reasons.add("Приоритет ФСП: достижения +" + fspPoints + " баллов" + gradePart);
         } else {
-            reasons.add("История ФСП отсутствует — профиль оценён без спортивного бонуса");
+            reasons.add("История ФСП отсутствует — профиль без спортивного приоритета");
         }
+        reasons.add("Категория: " + specialization + " / " + grade);
         if (vectorScore >= 0.6) {
             reasons.add("Высокое совпадение анкетных весов с потребностью");
         } else if (vectorScore >= 0.35) {
@@ -104,12 +142,26 @@ public final class MatchingRanker {
         if (testScore >= 0.7) {
             reasons.add(String.format(Locale.ROOT, "Сильный результат теста (%.0f%%)", testScore * 100));
         }
-        return reasons.stream().limit(4).toList();
+        return reasons.stream().limit(5).toList();
+    }
+
+    public static List<String> explain(
+            String specialization,
+            String grade,
+            List<String> needStack,
+            List<String> candidateStack,
+            double testScore,
+            int fspPoints,
+            double vectorScore
+    ) {
+        return explain(specialization, grade, needStack, candidateStack, testScore, fspPoints, null, vectorScore);
     }
 
     public static List<RankedCandidate> sort(List<RankedCandidate> input) {
         return input.stream()
-                .sorted(Comparator.comparingDouble(RankedCandidate::score).reversed())
+                .sorted(Comparator.comparingDouble(RankedCandidate::score).reversed()
+                        .thenComparing(Comparator.comparingInt(RankedCandidate::fspPoints).reversed())
+                        .thenComparing(Comparator.comparing(RankedCandidate::fspLinked).reversed()))
                 .toList();
     }
 

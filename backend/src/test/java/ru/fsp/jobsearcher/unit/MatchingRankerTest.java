@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import ru.fsp.jobsearcher.domain.enums.Grade;
 import ru.fsp.jobsearcher.matching.MatchingRanker;
 
 class MatchingRankerTest {
@@ -22,6 +23,14 @@ class MatchingRankerTest {
     }
 
     @Test
+    void explainPutsFspFirstWhenPresent() {
+        List<String> explain = MatchingRanker.explain(
+                "BACKEND", "MIDDLE", List.of("Java"), List.of("Java"), 0.8, 120, Grade.SENIOR, 0.7);
+        assertThat(explain.getFirst()).contains("Приоритет ФСП");
+        assertThat(explain.getFirst()).contains("SENIOR");
+    }
+
+    @Test
     void explainContainsFspAbsence() {
         List<String> explain = MatchingRanker.explain("BACKEND", "MIDDLE", List.of("Java"), List.of("Java"), 0.8, 0, 0.7);
         assertThat(explain.stream().anyMatch(s -> s.contains("ФСП"))).isTrue();
@@ -31,7 +40,15 @@ class MatchingRankerTest {
     void totalScoreIncreasesWithFsp() {
         Map<String, Double> v = Map.of("a", 1.0);
         double without = MatchingRanker.totalScore(v, v, List.of("Java"), List.of("Java"), 0.8, 0);
-        double with = MatchingRanker.totalScore(v, v, List.of("Java"), List.of("Java"), 0.8, 100);
+        double with = MatchingRanker.totalScore(v, v, List.of("Java"), List.of("Java"), 0.8, 100, Grade.MIDDLE, Grade.MIDDLE);
         assertThat(with).isGreaterThan(without);
+        assertThat(with - without).isGreaterThan(0.2);
+    }
+
+    @Test
+    void sortPutsFspCandidateAboveEqualBase() {
+        var low = new MatchingRanker.RankedCandidate("a", "IT:BACKEND:JUNIOR", 0.5, 0, null, false, List.of());
+        var high = new MatchingRanker.RankedCandidate("b", "IT:BACKEND:JUNIOR", 0.55, 200, "SENIOR", true, List.of());
+        assertThat(MatchingRanker.sort(List.of(low, high)).getFirst().candidateId()).isEqualTo("b");
     }
 }
