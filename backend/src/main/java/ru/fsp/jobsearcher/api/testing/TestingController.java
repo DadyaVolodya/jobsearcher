@@ -38,4 +38,18 @@ public class TestingController {
     public TestSession submit(@PathVariable UUID id, @RequestBody Map<String, Object> answers) {
         return testingService.submit(securityUtils.requireCurrentUser(), id, answers);
     }
+
+    /**
+     * События прокторинга с фронта: BLUR / TAB_HIDDEN / FOCUS_LOST / LEAVE_WINDOW / COPY_ATTEMPT.
+     * Уход с окна валит попытку (failReason=LEFT_WINDOW).
+     */
+    @PostMapping("/sessions/{id}/proctor")
+    public TestSession proctor(@PathVariable UUID id, @RequestBody Map<String, String> body) {
+        return testingService.proctorEvent(
+                securityUtils.requireCurrentUser(),
+                id,
+                body.get("event"),
+                body.get("detail")
+        );
+    }
 }

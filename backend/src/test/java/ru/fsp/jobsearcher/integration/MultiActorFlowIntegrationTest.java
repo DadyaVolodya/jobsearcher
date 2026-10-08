@@ -81,6 +81,7 @@ class MultiActorFlowIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn());
         UUID invId = UUID.fromString(invitation.path("id").asText());
+        assertThat(invitation.path("chatThreadId").asText()).isNotBlank();
 
         JsonNode beforeAccept = read(mockMvc.perform(get("/api/v1/invitations")
                         .header("X-User-Email", "e1@example.com")

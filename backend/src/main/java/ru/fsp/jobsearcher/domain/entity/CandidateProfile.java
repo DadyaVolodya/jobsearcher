@@ -88,6 +88,9 @@ public class CandidateProfile {
     @Column(nullable = false)
     private boolean published;
 
+    @Column(name = "grade_confirmed", nullable = false)
+    private boolean gradeConfirmed;
+
     @Column(name = "last_grade_change_at")
     private Instant lastGradeChangeAt;
 

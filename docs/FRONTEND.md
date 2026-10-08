@@ -1,195 +1,194 @@
 # Контракт API для фронтенда
 
 Base URL: `http://localhost:8080/api/v1`  
-Swagger UI: `http://localhost:8080/swagger-ui.html`  
-Content-Type: `application/json` (кроме upload резюме)
+Swagger: `http://localhost:8080/swagger-ui.html`  
+Auth: Keycloak email/password (realm `jobsearcher`) → `Authorization: Bearer <token>`  
+Local: `X-User-Email` + `X-User-Role`
 
-## Авторизация
+Брендбук ФСП: https://disk.yandex.ru/d/nxMN6oQTZ25wZQ
 
-### Production (Keycloak)
+---
 
-1. Login через Keycloak realm `jobsearcher`, client `jobsearcher-frontend`
-2. Получить access token
-3. Каждый запрос: `Authorization: Bearer <token>`
-4. Роли в JWT `realm_access.roles`: `CANDIDATE` | `EMPLOYER` | `ADMIN`
+## Экраны, которые нужны фронту
 
-Issuer: `http://localhost:8081/realms/jobsearcher`
+### Кандидат
+1. ЛК профиля (ФИО, контакты, стек, город, FSP ID, согласия, publish)
+2. Список вакансий + деталка вакансии + отклик
+3. Вкладка тестирования по грейдам (Junior/Middle/Senior): анкета → тест A/B/C
+4. Загрузка/парсинг резюме (PDF)
+5. Приглашения (accept / decline+причина) и чаты
+6. Во время теста: fullscreen, запрет copy/select, `visibilitychange`/`blur` → proctor
 
-### Local / demo без Keycloak
+### Работодатель
+1. ЛК компании
+2. Список своих вакансий + создание/редактирование
+3. Поиск претендентов (matching + bank) с explain
+4. Приглашение: **сразу salaryFrom/salaryTo** (без ЗП писать нельзя)
+5. Чаты по вакансии / напрямую (через invitation)
+6. После ACCEPT кандидата - контакты; при DECLINE - видна причина отказа
 
-Профиль `local` или `SECURITY_PERMIT_ALL=true`:
+---
 
-```
-X-User-Email: candidate1@example.com
-X-User-Role: CANDIDATE
-```
+## Auth / Me / Consents
 
-## Эндпоинты
+| Method | Path | Body |
+|--------|------|------|
+| GET | `/me` | |
+| GET/POST | `/consents` | `{type, granted}` |
 
-### Me / Consents
+Типы: `PERSONAL_DATA_PROCESSING`, `PROFILE_PUBLICATION`
 
-| Method | Path | Описание |
-|--------|------|----------|
-| GET | `/me` | текущий user + consents |
-| GET | `/consents` | список согласий |
-| POST | `/consents` | `{ "type": "PERSONAL_DATA_PROCESSING"\|"PROFILE_PUBLICATION", "granted": true }` |
+---
 
-Публикация профиля без обоих согласий → `403 JS_006`.
+## Dictionaries
 
-### Dictionaries
-
-| Method | Path |
-|--------|------|
 | GET | `/dictionaries/industries` |
 | GET | `/dictionaries/specializations?industryCode=IT` |
 | GET | `/dictionaries/grades` |
 
-### Candidate LK
+Грейды для UI теста: **JUNIOR / MIDDLE / SENIOR** (INTERN опционально).
+
+---
+
+## Candidate
+
+| Method | Path | Notes |
+|--------|------|-------|
+| GET/PUT | `/candidate/profile` | `gradeConfirmed` - официально подтверждён ли грейд |
+| POST | `/candidate/publish` | `{published:true}` после согласий + категории |
+| POST | `/candidate/resume` | multipart `file` → NLP parse (Ollama/Infereco) |
+| GET/POST | `/candidate/fsp` | stub достижений |
+
+`categoryCode` = `IT:BACKEND:JUNIOR` только после теста. Резюме категорию не ставит.
+
+---
+
+## Surveys (анкета перед тестом)
+
+| Method | Path |
+|--------|------|
+| GET | `/surveys?audience=CANDIDATE&industryCode=IT` |
+| GET | `/surveys/{id}/questions` |
+| POST | `/surveys/sessions` | `{questionnaireCode:"IT_CANDIDATE"}` |
+| POST | `/surveys/sessions/{id}/answers` | map code→option |
+| POST | `/surveys/sessions/{id}/complete` | |
+
+---
+
+## Testing (A/B/C + антисписывание)
 
 | Method | Path | Body |
 |--------|------|------|
-| GET | `/candidate/profile` | |
-| PUT | `/candidate/profile` | fullName, phone, city, about, stack[], softSkills[], experienceYears, resumeText, claimedGrade, industryCode, specializationCode, fspParticipantId, privacyHideContacts |
-| POST | `/candidate/publish` | `{ "published": true }` |
-| POST | `/candidate/resume` | multipart `file` (PDF/text) → NLP parse |
-| GET/POST | `/candidate/fsp` | stub достижений ФСП |
+| POST | `/tests/sessions` | `{targetGrade:"SENIOR"}` |
+| GET | `/tests/sessions/{id}` | items без `expected` |
+| POST | `/tests/sessions/{id}/submit` | map itemCode→answer |
+| POST | `/tests/sessions/{id}/proctor` | `{event, detail}` |
 
-Категория (`categoryCode`) появляется только после теста.  
-Резюме само по себе категорию не задаёт.
+### Секции в item
+- `A` теория
+- `B` практика
+- `C` олимпиадная практика
 
-### Surveys
+Поля item для UI:
+```json
+{
+  "itemId": "...",
+  "code": "BE_JUN_SUM_PARAM",
+  "section": "A",
+  "gradeLevel": "JUNIOR",
+  "prompt": "...",
+  "antiAiPrompt": "...",
+  "captchaStyle": true,
+  "copyPasteBlocked": true,
+  "options": [{"code":"12","label":"12"}],
+  "params": {"a": 5, "b": 7}
+}
+```
 
-| Method | Path | Body/Query |
-|--------|------|------------|
-| GET | `/surveys?audience=CANDIDATE&industryCode=IT` | |
-| GET | `/surveys/{id}/questions` | |
-| POST | `/surveys/sessions` | `{ "questionnaireCode": "IT_CANDIDATE" }` |
-| POST | `/surveys/sessions/{id}/answers` | map `questionCode -> optionCode` |
-| POST | `/surveys/sessions/{id}/complete?employerNeedId=` | считает vector |
+### Proctor (обязательно на фронте)
+- `document.addEventListener('visibilitychange')` / `window.blur` →  
+  `POST .../proctor` с `event: "TAB_HIDDEN"` или `"BLUR"` / `"LEAVE_WINDOW"`
+- Запрет copy/cut/select на контейнере теста (`user-select: none`, block clipboard)
+- При `failReason=LEFT_WINDOW` показать:  
+  **«Вы ушли со вкладки теста. Попытка засчитана как провал.»**
+- Пересдача грейда: **не чаще 1 раза в 30 дней** (`409 JS_007`)
 
-Коды анкет:
+### Логика грейда (бэк)
+- Если на SENIOR/MIDDLE сдал менее 50% «джун-пола» (секция A / JUNIOR-задания) → авто **JUNIOR**, `gradeConfirmed=false`
+- Если overall ≥ 0.6 → целевой грейд, `gradeConfirmed=true`
+- Иначе → грейд ниже целевого, неподтверждённый
 
-- `IT_CANDIDATE`, `IT_EMPLOYER` (глубокие)
-- `CONSTRUCTION_CANDIDATE`, `CONSTRUCTION_EMPLOYER`
-- `MARKETING_CANDIDATE`, `MARKETING_EMPLOYER`
+Параметрические задачи: числа `{{a}}/{{b}}/{{n}}` разные на каждую попытку (seed).
 
-### Testing
+Идея на плюс (ещё не API): webcam presence (документ/флаг в UI), анализ взгляда.
 
-| Method | Path | Body |
-|--------|------|------|
-| POST | `/tests/sessions` | `{ "targetGrade": "JUNIOR" }` |
-| GET | `/tests/sessions/{id}` | items без правильных ответов |
-| POST | `/tests/sessions/{id}/submit` | map `itemCode -> answer` |
+---
 
-Ответ submit: `score`, `passed`, на профиле обновляются `assignedGrade`, `categoryCode`.  
-Смена грейда чаще 1 раза / 90 дней → `409 JS_007`.
-
-### Employer LK
+## Employer / Needs / Matching
 
 | Method | Path |
 |--------|------|
 | GET/PUT | `/employer/profile` |
-| GET/POST | `/employer/needs` |
+| GET/POST | `/employer/needs` | salaryFrom/To обязательны |
+| GET | `/matching/needs/{needId}?stack=` | candidates + explain |
+| GET | `/matching/candidates?...` | банк без контактов |
 
-Need обязателен: `salaryFrom`, `salaryTo` (руб, from>0, to>=from), industry/specialization/grade.
+---
 
-### Matching
-
-| Method | Path |
-|--------|------|
-| GET | `/matching/needs/{needId}?stack=Java` | категории + кандидаты + `explain[]` |
-| GET | `/matching/candidates?industryCode&specializationCode&grade&categoryCode&stack&requireFsp` |
-
-В выдаче банка **нет** email/phone кандидата.
-
-### Invitations
+## Invitations (ЗП до чата)
 
 | Method | Path | Body |
 |--------|------|------|
-| POST | `/invitations` | candidateId, needId?, message, salaryFrom, salaryTo |
-| GET | `/invitations` | свои (по роли) |
-| POST | `/invitations/{id}/status` | `{ "status": "VIEWED"\|"ACCEPTED"\|"DECLINED" }` |
+| POST | `/invitations` | `candidateId, needId?, vacancyId?, message, salaryFrom, salaryTo` |
+| GET | `/invitations` | свои |
+| POST | `/invitations/{id}/status` | `{status:"ACCEPTED"\|"DECLINED"\|"VIEWED", declineReason?}` |
 
-Статусы: `SENT`, `VIEWED`, `ACCEPTED`, `DECLINED`.  
-`candidateEmail`/`candidatePhone` в ответе работодателя заполняются только при `ACCEPTED`.
+- `DECLINED` без `declineReason` → 400
+- Ответ содержит `chatThreadId`
+- `candidateEmail/Phone` только при `ACCEPTED`
 
-### Vacancies (доп. сценарий)
+---
+
+## Chats
+
+| Method | Path | Body |
+|--------|------|------|
+| GET | `/chats` | threads (ЗП, статус, contactsRevealed) |
+| GET | `/chats/{threadId}/messages` | |
+| POST | `/chats/{threadId}/messages` | `{body}` |
+
+Чат создаётся вместе с приглашением (прямым или по вакансии).  
+Контакты в thread: `contactsRevealed=true` только после ACCEPT.
+
+---
+
+## Vacancies
 
 | Method | Path |
 |--------|------|
 | GET | `/vacancies` | опубликованные |
 | GET | `/vacancies/mine` | работодателя |
-| POST | `/vacancies` | create (+ publish) |
-| POST | `/vacancies/{id}/applications` | `{ "coverLetter" }` |
-| GET | `/vacancies/applications/mine` | отклики кандидата |
-| GET | `/vacancies/{id}/applications` | отклики на вакансию |
+| POST | `/vacancies` | create |
+| POST | `/vacancies/{id}/applications` | `{coverLetter}` |
+| GET | `/vacancies/applications/mine` | |
+| GET | `/vacancies/{id}/applications` | работодатель |
 
-## DTO-ориентиры
+---
 
-### categoryCode
-
-Формат: `{INDUSTRY}:{SPECIALIZATION}:{GRADE}`  
-Пример: `IT:BACKEND:MIDDLE`
-
-### InvitationView
+## Ошибки
 
 ```json
-{
-  "id": "uuid",
-  "employerId": "uuid",
-  "companyName": "Acme",
-  "candidateId": "uuid",
-  "candidateName": "Иван",
-  "candidateEmail": null,
-  "candidatePhone": null,
-  "needId": "uuid",
-  "message": "...",
-  "salaryFrom": 150000,
-  "salaryTo": 200000,
-  "status": "SENT",
-  "createdAt": "2026-10-05T10:00:00Z"
-}
+{ "code": "JS_003", "message": "...", "timestamp": "..." }
 ```
 
-### MatchResponse
+Важные: `JS_006` согласие, `JS_007` cooldown 30 дней, `JS_008` bad state (LEFT_WINDOW / нет ЗП / нет причины отказа).
 
-```json
-{
-  "needId": "uuid",
-  "primaryCategory": "IT:BACKEND:JUNIOR",
-  "candidates": [
-    {
-      "candidateId": "uuid",
-      "categoryCode": "IT:BACKEND:JUNIOR",
-      "score": 0.81,
-      "explain": ["Категория: BACKEND / JUNIOR", "Совпал стек: java"]
-    }
-  ],
-  "categories": { "IT:BACKEND:JUNIOR": [] }
-}
-```
+---
 
-## Что фронту нужно доделать / реализовать
+## Frontend checklist (антисписывание)
 
-1. Keycloak login/logout (Authorization Code + PKCE), хранение access token, refresh
-2. Выбор роли при регистрации / экраны онбординга кандидата и работодателя
-3. UI согласий 152-ФЗ до публикации профиля
-4. Мастер кандидата: анкета → выбор грейда → тест → результат категории
-5. ЛК кандидата: профиль, приватность, FSP ID, входящие приглашения accept/decline
-6. ЛК работодателя: компания, потребность, подборка с explain, банк кандидатов, приглашения
-7. Загрузка PDF резюме и отображение распарсенных полей (бэк уже отдаёт обновлённый профиль)
-8. Автогенерация стандартизированного PDF-профиля из данных ЛК (клиентский рендер)
-9. Список вакансий + отклик (доп. сценарий MVP+)
-10. Обработка кодов ошибок `JS_*` и статусов приглашений/откликов
-11. Не показывать контакты кандидата до `ACCEPTED` (бэк скрывает, UI не должен кэшировать раньше времени)
-12. Адаптивная вёрстка — опционально для MVP
-
-## Demo curl (local)
-
-```bash
-# кандидат
-curl -s -H 'X-User-Email: c@x.ru' -H 'X-User-Role: CANDIDATE' http://localhost:8080/api/v1/me
-
-# справочник
-curl -s http://localhost:8080/api/v1/dictionaries/industries
-```
+1. `user-select: none` + block copy/paste на экране теста
+2. На blur/hidden сразу `proctor` и показать fail-сообщение
+3. Не рендерить правильные ответы (бэк их не отдаёт)
+4. Показывать секции A/B/C и antiAiPrompt под заданием
+5. Для captchaStyle - стилизовать «рукописный» вид текста (CSS), без OCR-friendly шрифтов

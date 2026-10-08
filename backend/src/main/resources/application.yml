@@ -47,7 +47,7 @@ app:
     allowed-origin-patterns: ${CORS_ORIGINS:*}
   security:
     permit-all: ${SECURITY_PERMIT_ALL:false}
-  grade-change-cooldown-days: 90
+  grade-change-cooldown-days: 30
   storage:
     type: local
     local-root: ${STORAGE_ROOT:../storage/uploads}

@@ -29,9 +29,11 @@ class TestSessionAssemblerTest {
     }
 
     @Test
-    void assembleHidesCorrectFlags() {
+    void assembleHidesCorrectFlagsAndSetsSections() {
         TestItem item = item();
         List<Map<String, Object>> session = TestSessionAssembler.assemble(List.of(item), 42L, 1);
+        assertThat(session.getFirst().get("section")).isEqualTo("A");
+        assertThat(session.getFirst().get("copyPasteBlocked")).isEqualTo(true);
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> options = (List<Map<String, Object>>) session.getFirst().get("options");
         assertThat(options).isNotEmpty();
@@ -43,10 +45,10 @@ class TestSessionAssemblerTest {
         TestItem item = item();
         List<Map<String, Object>> session = TestSessionAssembler.assemble(List.of(item), 1L, 1);
         Map<String, TestItem> byId = Map.of(item.getId().toString(), item);
-        double good = TestSessionAssembler.gradeAnswers(session, Map.of(item.getCode(), "YES"), byId);
-        double bad = TestSessionAssembler.gradeAnswers(session, Map.of(item.getCode(), "NO"), byId);
-        assertThat(good).isEqualTo(1.0);
-        assertThat(bad).isEqualTo(0.0);
+        var good = TestSessionAssembler.gradeAnswers(session, Map.of(item.getCode(), "YES"), byId);
+        var bad = TestSessionAssembler.gradeAnswers(session, Map.of(item.getCode(), "NO"), byId);
+        assertThat(good.overall()).isEqualTo(1.0);
+        assertThat(bad.overall()).isEqualTo(0.0);
     }
 
     private static TestItem item() {
@@ -68,6 +70,10 @@ class TestSessionAssemblerTest {
         t.setCorrectAnswer(correct);
         t.setWeight(1.0);
         t.setActive(true);
+        t.setSection("A");
+        t.setAntiAiPrompt("no ai");
+        t.setCaptchaStyle(false);
+        t.setParamSchema(Map.of());
         return t;
     }
 }

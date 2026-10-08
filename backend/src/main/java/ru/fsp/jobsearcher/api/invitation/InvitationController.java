@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import ru.fsp.jobsearcher.application.security.SecurityUtils;
 import ru.fsp.jobsearcher.application.service.InvitationService;
-import ru.fsp.jobsearcher.domain.entity.Invitation;
 import ru.fsp.jobsearcher.domain.enums.InvitationStatus;
 
 @RestController
@@ -26,7 +25,7 @@ public class InvitationController {
     private final InvitationService invitationService;
 
     @PostMapping
-    public Invitation create(@RequestBody InvitationService.CreateRequest req) {
+    public InvitationService.InvitationView create(@RequestBody InvitationService.CreateRequest req) {
         return invitationService.create(securityUtils.requireCurrentUser(), req);
     }
 
@@ -38,6 +37,10 @@ public class InvitationController {
     @PostMapping("/{id}/status")
     public InvitationService.InvitationView status(@PathVariable UUID id, @RequestBody Map<String, String> body) {
         return invitationService.updateStatus(
-                securityUtils.requireCurrentUser(), id, InvitationStatus.valueOf(body.get("status")));
+                securityUtils.requireCurrentUser(),
+                id,
+                InvitationStatus.valueOf(body.get("status")),
+                body.get("declineReason")
+        );
     }
 }

@@ -59,6 +59,27 @@ public class TestSession {
     private Double score;
     private Boolean passed;
 
+    @Column(name = "fail_reason")
+    private String failReason;
+
+    @Column(name = "grade_confirmed")
+    private Boolean gradeConfirmed;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "section_scores_json", nullable = false)
+    private Map<String, Double> sectionScores = new HashMap<>();
+
+    @Column(name = "junior_floor_score")
+    private Double juniorFloorScore;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "proctor_events_json", nullable = false)
+    private List<Map<String, Object>> proctorEvents = new ArrayList<>();
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "assigned_grade")
+    private Grade assignedGrade;
+
     @Column(name = "started_at", nullable = false)
     private Instant startedAt;
 

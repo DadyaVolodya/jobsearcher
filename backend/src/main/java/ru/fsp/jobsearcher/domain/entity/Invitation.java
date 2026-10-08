@@ -30,8 +30,14 @@ public class Invitation {
     @Column(name = "need_id")
     private UUID needId;
 
+    @Column(name = "vacancy_id")
+    private UUID vacancyId;
+
     @Column(nullable = false)
     private String message;
+
+    @Column(name = "decline_reason")
+    private String declineReason;
 
     @Column(name = "salary_from", nullable = false)
     private int salaryFrom;

@@ -66,4 +66,17 @@ public class TestItem {
 
     @Column(nullable = false)
     private boolean active;
+
+    @Column(nullable = false)
+    private String section = "B";
+
+    @Column(name = "anti_ai_prompt")
+    private String antiAiPrompt;
+
+    @Column(name = "captcha_style", nullable = false)
+    private boolean captchaStyle;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "param_schema_json", nullable = false)
+    private Map<String, Object> paramSchema = new HashMap<>();
 }

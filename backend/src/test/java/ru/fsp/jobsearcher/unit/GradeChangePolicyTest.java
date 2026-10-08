@@ -14,26 +14,31 @@ import ru.fsp.jobsearcher.domain.enums.Grade;
 class GradeChangePolicyTest {
 
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-05T00:00:00Z"), ZoneOffset.UTC);
-    private final GradeChangePolicy policy = new GradeChangePolicy(90, clock);
+    private final GradeChangePolicy policy = new GradeChangePolicy(30, clock);
 
     @Test
     void cooldownBlocksRecentChange() {
-        assertThatThrownBy(() -> policy.assertCanChange(Instant.parse("2026-09-01T00:00:00Z")))
+        assertThatThrownBy(() -> policy.assertCanChange(Instant.parse("2026-09-20T00:00:00Z")))
                 .isInstanceOf(ApiException.class);
     }
 
     @Test
     void cooldownAllowsOldChange() {
-        policy.assertCanChange(Instant.parse("2026-01-01T00:00:00Z"));
+        policy.assertCanChange(Instant.parse("2026-08-01T00:00:00Z"));
     }
 
     @Test
-    void failedTestGoesLower() {
-        assertThat(policy.resolveAfterTest(Grade.MIDDLE, false, 0.2)).isEqualTo(Grade.JUNIOR);
+    void weakJuniorFloorForcesJunior() {
+        assertThat(policy.resolveAssigned(Grade.SENIOR, 0.8, 0.4)).isEqualTo(Grade.JUNIOR);
     }
 
     @Test
-    void excellentPassCanRaise() {
-        assertThat(policy.resolveAfterTest(Grade.JUNIOR, true, 0.95)).isEqualTo(Grade.MIDDLE);
+    void passKeepsTarget() {
+        assertThat(policy.resolveAssigned(Grade.SENIOR, 0.7, 0.6)).isEqualTo(Grade.SENIOR);
+    }
+
+    @Test
+    void failWithFloorGoesLower() {
+        assertThat(policy.resolveAssigned(Grade.SENIOR, 0.3, 0.6)).isEqualTo(Grade.MIDDLE);
     }
 }

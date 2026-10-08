@@ -14,6 +14,7 @@ public class CleanDbTestListener implements TestExecutionListener {
         JdbcTemplate jdbc = testContext.getApplicationContext().getBean(JdbcTemplate.class);
         jdbc.execute("""
             TRUNCATE TABLE
+              chat_message, chat_thread,
               vacancy_application, vacancy, invitation, fsp_achievement, grade_change_log,
               test_session, survey_session, employer_need, stored_file,
               candidate_profile, employer_profile, user_consent, app_user
