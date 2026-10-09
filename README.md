@@ -61,7 +61,6 @@ OpenAPI: `/v3/api-docs`
 - [docs/DEPLOY.md](docs/DEPLOY.md)
 - [docs/LIBRARIES.md](docs/LIBRARIES.md)
 - [docs/FRONTEND.md](docs/FRONTEND.md)
-- [docs/COMPETITOR_BACKLOG.md](docs/COMPETITOR_BACKLOG.md) - идеи с чужих решений (без копирования кода)
 
 ## Стек
 
