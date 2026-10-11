@@ -4,7 +4,7 @@
 (Timeweb Cloud / Selectel / DigitalOcean). Keycloak на демо не нужен: `SECURITY_PERMIT_ALL=true`
 и вход по email в UI.
 
-## Ссылки для жюри (заполнить после выката)
+## Ссылки для жюри
 
 | Что | URL |
 |-----|-----|
@@ -13,6 +13,10 @@
 | Работодатель | `https://<host>/employer/` |
 | Swagger | `https://<host>/swagger-ui.html` |
 | Health | `https://<host>/actuator/health` |
+
+Локальный демо-стек уже проверен: `docker compose -f docker-compose.demo.yml up -d --build`
+(порт 80: UI + `/api`). Для стабильного HTTPS выката жюри используйте **VPS** или **Render** ниже
+(не Яндекс Облако). Quick Tunnel Cloudflare годится только для короткого показа с вашей машины.
 
 Демо-аккаунты (seed V5):
 
