@@ -28,8 +28,9 @@ services:
       INFERECO_API_KEY: ${INFERECO_API_KEY:-}
       STORAGE_ROOT: /data/uploads
       CORS_ORIGINS: "*"
-    ports:
-      - "8080:8080"
+    # API наружу только через web:80 (/api). При необходимости раскомментируйте:
+    # ports:
+    #   - "8080:8080"
     volumes:
       - ./storage/uploads:/data/uploads
     depends_on:
