@@ -34,9 +34,13 @@ Local: `X-User-Email` + `X-User-Role`
 | Method | Path | Body |
 |--------|------|------|
 | GET | `/me` | |
-| GET/POST | `/consents` | `{type, granted}` |
+| GET | `/consents` | список с `documentUrl`, `documentTitle`, `currentDocumentVersion` |
+| GET | `/consents/documents` | каталог вложений к согласиям |
+| GET | `/consents/documents/{type}` | полный текст согласия (HTML-вложение, 152-ФЗ) |
+| POST | `/consents` | `{type, granted, documentVersion}` — при `granted:true` **обязателен** `documentVersion` (= `v1`) |
 
-Типы: `PERSONAL_DATA_PROCESSING`, `PROFILE_PUBLICATION`
+Типы: `PERSONAL_DATA_PROCESSING`, `PROFILE_PUBLICATION`  
+В UI у каждого чекбокса должна быть ссылка на вложение (`documentUrl`), пользователь обязан открыть/принять текст перед grant.
 
 ---
 

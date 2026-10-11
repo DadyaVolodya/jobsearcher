@@ -161,13 +161,13 @@ class MultiActorFlowIntegrationTest {
                         .header("X-User-Email", email)
                         .header("X-User-Role", "CANDIDATE")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"type\":\"PERSONAL_DATA_PROCESSING\",\"granted\":true}"))
+                        .content("{\"type\":\"PERSONAL_DATA_PROCESSING\",\"granted\":true,\"documentVersion\":\"v1\"}"))
                 .andExpect(status().isOk());
         mockMvc.perform(post("/api/v1/consents")
                         .header("X-User-Email", email)
                         .header("X-User-Role", "CANDIDATE")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"type\":\"PROFILE_PUBLICATION\",\"granted\":true}"))
+                        .content("{\"type\":\"PROFILE_PUBLICATION\",\"granted\":true,\"documentVersion\":\"v1\"}"))
                 .andExpect(status().isOk());
 
         JsonNode session = read(mockMvc.perform(post("/api/v1/surveys/sessions")

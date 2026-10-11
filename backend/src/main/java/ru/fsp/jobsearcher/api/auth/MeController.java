@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.RestController;
 import ru.fsp.jobsearcher.application.security.CurrentUser;
 import ru.fsp.jobsearcher.application.security.SecurityUtils;
 import ru.fsp.jobsearcher.application.service.ConsentService;
-import ru.fsp.jobsearcher.domain.entity.UserConsent;
 
 @RestController
 @RequestMapping("/api/v1/me")
@@ -26,7 +25,7 @@ public class MeController {
     @Operation(summary = "Текущий пользователь и согласия")
     public Map<String, Object> me() {
         CurrentUser user = securityUtils.requireCurrentUser();
-        List<UserConsent> consents = consentService.list(user.userId());
+        List<ConsentService.ConsentView> consents = consentService.list(user.userId());
         return Map.of(
                 "userId", user.userId(),
                 "email", user.email(),
