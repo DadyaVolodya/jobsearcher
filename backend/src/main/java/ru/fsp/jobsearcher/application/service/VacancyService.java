@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.fsp.jobsearcher.api.common.ApiException;
 import ru.fsp.jobsearcher.application.security.CurrentUser;
+import ru.fsp.jobsearcher.domain.entity.AppUser;
 import ru.fsp.jobsearcher.domain.entity.CandidateProfile;
 import ru.fsp.jobsearcher.domain.entity.EmployerProfile;
 import ru.fsp.jobsearcher.domain.entity.Vacancy;
@@ -15,6 +16,8 @@ import ru.fsp.jobsearcher.domain.entity.VacancyApplication;
 import ru.fsp.jobsearcher.domain.enums.ApplicationStatus;
 import ru.fsp.jobsearcher.domain.enums.Grade;
 import ru.fsp.jobsearcher.domain.enums.VacancyStatus;
+import ru.fsp.jobsearcher.domain.repository.AppUserRepository;
+import ru.fsp.jobsearcher.domain.repository.CandidateProfileRepository;
 import ru.fsp.jobsearcher.domain.repository.VacancyApplicationRepository;
 import ru.fsp.jobsearcher.domain.repository.VacancyRepository;
 
@@ -24,6 +27,8 @@ public class VacancyService {
 
     private final VacancyRepository vacancyRepository;
     private final VacancyApplicationRepository vacancyApplicationRepository;
+    private final CandidateProfileRepository candidateProfileRepository;
+    private final AppUserRepository appUserRepository;
     private final EmployerService employerService;
     private final CandidateService candidateService;
 
@@ -51,11 +56,6 @@ public class VacancyService {
         return vacancyRepository.save(v);
     }
 
-    @Transactional(readOnly = true)
-    public List<Vacancy> listPublished() {
-        return vacancyRepository.findByStatus(VacancyStatus.PUBLISHED);
-    }
-
     @Transactional
     public Vacancy update(CurrentUser user, UUID id, CreateRequest req) {
         EmployerProfile employer = employerService.requireMine(user);
@@ -81,6 +81,11 @@ public class VacancyService {
     }
 
     @Transactional(readOnly = true)
+    public List<Vacancy> listPublished() {
+        return vacancyRepository.findByStatus(VacancyStatus.PUBLISHED);
+    }
+
+    @Transactional(readOnly = true)
     public List<Vacancy> listMine(CurrentUser user) {
         return vacancyRepository.findByEmployerIdOrderByCreatedAtDesc(employerService.requireMine(user).getId());
     }
@@ -97,6 +102,11 @@ public class VacancyService {
                 .ifPresent(a -> {
                     throw ApiException.conflict("Отклик уже существует");
                 });
+        // По ТЗ отклик раскрывает контакты работодателю по этой заявке
+        candidate.setPrivacyHideContacts(false);
+        candidate.touch();
+        candidateProfileRepository.save(candidate);
+
         VacancyApplication app = new VacancyApplication();
         app.setId(UUID.randomUUID());
         app.setVacancyId(vacancyId);
@@ -116,14 +126,63 @@ public class VacancyService {
     }
 
     @Transactional(readOnly = true)
-    public List<VacancyApplication> vacancyApplications(CurrentUser user, UUID vacancyId) {
+    public List<ApplicationView> vacancyApplications(CurrentUser user, UUID vacancyId) {
         EmployerProfile employer = employerService.requireMine(user);
         Vacancy vacancy = vacancyRepository.findById(vacancyId)
                 .orElseThrow(() -> ApiException.notFound("Вакансия не найдена"));
         if (!vacancy.getEmployerId().equals(employer.getId())) {
             throw ApiException.forbidden("Чужая вакансия");
         }
-        return vacancyApplicationRepository.findByVacancyIdOrderByCreatedAtDesc(vacancyId);
+        return vacancyApplicationRepository.findByVacancyIdOrderByCreatedAtDesc(vacancyId).stream()
+                .map(this::toView)
+                .toList();
+    }
+
+    private ApplicationView toView(VacancyApplication app) {
+        CandidateProfile candidate = candidateProfileRepository.findById(app.getCandidateId()).orElse(null);
+        String email = null;
+        String phone = null;
+        String name = null;
+        Grade grade = null;
+        Boolean confirmed = null;
+        if (candidate != null) {
+            name = candidate.getFullName();
+            phone = candidate.getPhone();
+            grade = candidate.getAssignedGrade();
+            confirmed = candidate.isGradeConfirmed();
+            AppUser u = appUserRepository.findById(candidate.getUserId()).orElse(null);
+            email = u == null ? null : u.getEmail();
+        }
+        return new ApplicationView(
+                app.getId(),
+                app.getVacancyId(),
+                app.getCandidateId(),
+                app.getCoverLetter(),
+                app.getStatus() == null ? null : app.getStatus().name(),
+                app.getCreatedAt(),
+                name,
+                email,
+                phone,
+                true,
+                grade,
+                confirmed
+        );
+    }
+
+    public record ApplicationView(
+            UUID id,
+            UUID vacancyId,
+            UUID candidateId,
+            String coverLetter,
+            String status,
+            Instant createdAt,
+            String candidateName,
+            String candidateEmail,
+            String candidatePhone,
+            boolean contactsRevealed,
+            Grade assignedGrade,
+            Boolean gradeConfirmed
+    ) {
     }
 
     public record CreateRequest(

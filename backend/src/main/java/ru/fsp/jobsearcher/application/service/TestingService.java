@@ -27,6 +27,7 @@ import ru.fsp.jobsearcher.domain.enums.SessionStatus;
 import ru.fsp.jobsearcher.domain.enums.UserRole;
 import ru.fsp.jobsearcher.domain.repository.CandidateProfileRepository;
 import ru.fsp.jobsearcher.domain.repository.GradeChangeLogRepository;
+import ru.fsp.jobsearcher.domain.repository.SurveySessionRepository;
 import ru.fsp.jobsearcher.domain.repository.TestItemRepository;
 import ru.fsp.jobsearcher.domain.repository.TestSessionRepository;
 import ru.fsp.jobsearcher.testing.engine.TestSessionAssembler;
@@ -40,14 +41,13 @@ public class TestingService {
     private final TestItemRepository testItemRepository;
     private final TestSessionRepository testSessionRepository;
     private final GradeChangeLogRepository gradeChangeLogRepository;
+    private final SurveySessionRepository surveySessionRepository;
     private final GradeChangePolicy gradeChangePolicy;
 
     @Transactional
     public TestSession start(CurrentUser user, String targetGrade) {
         CandidateProfile profile = candidateService.requireMine(user);
-        if (profile.getIndustryCode() == null || profile.getSpecializationCode() == null) {
-            throw ApiException.badState("Сначала завершите отраслевую анкету (отрасль и специализация)");
-        }
+        assertSurveyReady(user, profile);
         Grade grade = Grade.from(targetGrade == null
                 ? (profile.getClaimedGrade() == null ? "JUNIOR" : profile.getClaimedGrade().name())
                 : targetGrade);
@@ -108,7 +108,6 @@ public class TestingService {
             return finalizeSession(profile, session, "LEFT_WINDOW");
         }
         if (normalized.contains("COPY")) {
-            // soft signal - keep going but record
             return publicSession(testSessionRepository.save(session));
         }
         return publicSession(testSessionRepository.save(session));
@@ -125,6 +124,18 @@ public class TestingService {
         return publicSession(session);
     }
 
+    private void assertSurveyReady(CurrentUser user, CandidateProfile profile) {
+        if (profile.getIndustryCode() == null || profile.getSpecializationCode() == null) {
+            throw ApiException.badState("Сначала завершите отраслевую анкету (отрасль и специализация)");
+        }
+        boolean completedSession = surveySessionRepository.findByUserIdOrderByStartedAtDesc(user.userId()).stream()
+                .anyMatch(s -> s.getStatus() == SessionStatus.COMPLETED);
+        boolean hasVector = profile.getSurveyVector() != null && !profile.getSurveyVector().isEmpty();
+        if (!completedSession && !hasVector) {
+            throw ApiException.badState("Сначала завершите отраслевую анкету перед тестированием");
+        }
+    }
+
     private TestSession finalizeSession(CandidateProfile profile, TestSession session, String failReason) {
         List<String> ids = session.getItems().stream().map(i -> String.valueOf(i.get("itemId"))).toList();
         Map<String, TestItem> byId = testItemRepository.findAllById(
@@ -134,22 +145,32 @@ public class TestingService {
         TestSessionAssembler.ScoreBreakdown breakdown = TestSessionAssembler.gradeAnswers(
                 session.getItems(), session.getAnswers(), byId);
 
+        Grade previous = profile.getAssignedGrade();
         Grade assigned;
         boolean confirmed;
         boolean passed;
+        Grade suggestedRetry = null;
+        String reasonCode;
+
         if (failReason != null) {
-            assigned = Grade.JUNIOR;
+            // Прокторинг: попытка провалена, грейд не понижаем
+            assigned = previous != null ? previous : session.getTargetGrade();
             confirmed = false;
             passed = false;
+            suggestedRetry = session.getTargetGrade();
+            reasonCode = failReason;
             session.setFailReason(failReason);
             session.setScore(0.0);
             session.setJuniorFloorScore(0.0);
             session.setSectionScores(Map.of("A", 0.0, "B", 0.0, "C", 0.0));
         } else {
-            assigned = gradeChangePolicy.resolveAssigned(
-                    session.getTargetGrade(), breakdown.overall(), breakdown.juniorFloor());
-            confirmed = gradeChangePolicy.isConfirmed(session.getTargetGrade(), assigned, breakdown.overall());
+            GradeChangePolicy.Outcome outcome = gradeChangePolicy.resolve(
+                    session.getTargetGrade(), previous, breakdown.overall(), breakdown.juniorFloor());
+            assigned = outcome.assigned();
+            confirmed = outcome.confirmed();
             passed = confirmed;
+            suggestedRetry = outcome.suggestedRetry();
+            reasonCode = outcome.reasonCode();
             session.setScore(breakdown.overall());
             session.setJuniorFloorScore(breakdown.juniorFloor());
             session.setSectionScores(breakdown.bySection());
@@ -158,11 +179,11 @@ public class TestingService {
         session.setPassed(passed);
         session.setGradeConfirmed(confirmed);
         session.setAssignedGrade(assigned);
+        session.setSuggestedRetryGrade(suggestedRetry);
         session.setStatus(SessionStatus.COMPLETED);
         session.setCompletedAt(Instant.now());
         testSessionRepository.save(session);
 
-        Grade previous = profile.getAssignedGrade();
         profile.setAssignedGrade(assigned);
         profile.setGradeConfirmed(confirmed);
         profile.setTestScore(session.getScore() == null ? 0.0 : session.getScore());
@@ -178,7 +199,7 @@ public class TestingService {
         log.setCandidateId(profile.getId());
         log.setFromGrade(previous == null ? null : previous.name());
         log.setToGrade(assigned.name());
-        log.setReason(failReason != null ? failReason : (confirmed ? "TEST_CONFIRMED" : "TEST_UNCONFIRMED_OR_FLOOR"));
+        log.setReason(reasonCode);
         log.setChangedAt(Instant.now());
         gradeChangeLogRepository.save(log);
 
@@ -211,10 +232,10 @@ public class TestingService {
     }
 
     private TestSession publicSession(TestSession session) {
-        // Keep the managed entity intact: expected answers must remain in items_json.
         TestSession response = new TestSession();
         BeanUtils.copyProperties(session, response);
         response.setItems(session.getItems().stream().map(this::publicItem).toList());
+        response.setSuggestedRetryGrade(session.getSuggestedRetryGrade());
         return response;
     }
 

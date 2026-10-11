@@ -17,7 +17,11 @@ export interface FspSummary { fspParticipantId: string | null; fspGrade: Grade |
 export interface EmployerProfile { id: Id; companyName: string | null; description: string | null; industryFocus: string | null; contactEmail: string | null; contactPhone: string | null; website: string | null }
 export interface Need { id: Id; title: string; description: string; industryCode: string; specializationCode: string; grade: Grade; stack: string[]; salaryFrom: number; salaryTo: number; active: boolean }
 export interface Vacancy { id: Id; title: string; description: string; industryCode: string; specializationCode: string; grade: Grade; stack: string[]; salaryFrom: number; salaryTo: number; status: string; createdAt: string }
-export interface Application { id: Id; vacancyId: Id; candidateId: Id; coverLetter: string; status: string; createdAt: string }
+export interface Application {
+  id: Id; vacancyId: Id; candidateId: Id; coverLetter: string; status: string; createdAt: string;
+  candidateName?: string | null; candidateEmail?: string | null; candidatePhone?: string | null;
+  contactsRevealed?: boolean; assignedGrade?: Grade | null; gradeConfirmed?: boolean | null;
+}
 export interface CandidateView { id: Id; fullName: string | null; categoryCode: string | null; industryCode: string | null; specializationCode: string | null; grade: Grade | null; stack: string[]; testScore: number; profileScore: number; matchScore: number; fspPoints: number; fspGrade: Grade | null; fspAchievementsCount: number; fspLinked: boolean; city: string | null }
 export interface RankedCandidate { candidateId: Id; categoryCode: string; score: number; fspPoints: number; fspGrade: Grade | null; fspLinked: boolean; explain: string[] }
 export interface MatchResponse { needId: Id; primaryCategory: string; candidates: RankedCandidate[]; categories: Record<string, RankedCandidate[]> }
@@ -31,4 +35,4 @@ export interface Questionnaire { id: Id; code: string; title: string }
 export interface SurveyQuestion { id: Id; code: string; text: string; questionType: string; options: { code: string; label: string }[]; sortOrder: number }
 export interface SurveySession { id: Id; status: string; answers: Record<string, unknown> }
 export interface TestItem { itemId: Id; code: string; section: 'A' | 'B' | 'C'; gradeLevel: Grade; prompt: string; antiAiPrompt: string | null; captchaStyle: boolean; copyPasteBlocked: boolean; options: { code: string; label: string }[]; params: Record<string, unknown> }
-export interface TestSession { id: Id; status: string; items: TestItem[]; answers: Record<string, unknown>; score: number | null; passed: boolean | null; failReason: string | null; gradeConfirmed: boolean | null; assignedGrade: Grade | null; sectionScores: Record<string, number>; startedAt: string }
+export interface TestSession { id: Id; status: string; items: TestItem[]; answers: Record<string, unknown>; score: number | null; passed: boolean | null; failReason: string | null; gradeConfirmed: boolean | null; assignedGrade: Grade | null; suggestedRetryGrade?: Grade | null; sectionScores: Record<string, number>; startedAt: string }

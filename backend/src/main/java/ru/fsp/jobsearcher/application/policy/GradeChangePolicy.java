@@ -32,24 +32,30 @@ public class GradeChangePolicy {
     }
 
     /**
-     * Если на целевом грейде (например SENIOR) кандидат сдал менее 50% «джун-пола» - автоматом JUNIOR.
-     * Иначе при pass (>=0.6) - целевой грейд; при fail - на уровень ниже, но не ниже JUNIOR если пол пройден.
+     * По ТЗ: при провале целевой грейд не подтверждается, но текущий назначенный грейд
+     * автоматически не понижается. Кандидату предлагают пересдать на suggestedRetry.
      */
-    public Grade resolveAssigned(Grade target, double overallScore, double juniorFloorScore) {
-        if (juniorFloorScore < 0.5) {
-            return Grade.JUNIOR;
+    public Outcome resolve(Grade target, Grade previousAssigned, double overallScore, double juniorFloorScore) {
+        if (overallScore >= 0.6 && juniorFloorScore >= 0.5) {
+            return new Outcome(target, true, null, "TEST_CONFIRMED");
         }
-        if (overallScore >= 0.6) {
-            return target;
-        }
-        return target.lower().orElse(Grade.JUNIOR);
-    }
-
-    public boolean isConfirmed(Grade target, Grade assigned, double overallScore) {
-        return assigned == target && overallScore >= 0.6;
+        Grade keep = previousAssigned != null ? previousAssigned : target;
+        Grade suggest = juniorFloorScore < 0.5
+                ? Grade.JUNIOR
+                : target.lower().orElse(Grade.JUNIOR);
+        String reason = juniorFloorScore < 0.5 ? "WEAK_JUNIOR_FLOOR" : "TEST_FAILED";
+        return new Outcome(keep, false, suggest, reason);
     }
 
     public boolean isPassed(double score) {
         return score >= 0.6;
+    }
+
+    public record Outcome(
+            Grade assigned,
+            boolean confirmed,
+            Grade suggestedRetry,
+            String reasonCode
+    ) {
     }
 }

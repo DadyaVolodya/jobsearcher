@@ -22,6 +22,8 @@ import ru.fsp.jobsearcher.domain.entity.EmployerProfile;
 import ru.fsp.jobsearcher.domain.entity.Vacancy;
 import ru.fsp.jobsearcher.domain.enums.UserRole;
 import ru.fsp.jobsearcher.domain.enums.VacancyStatus;
+import ru.fsp.jobsearcher.domain.repository.AppUserRepository;
+import ru.fsp.jobsearcher.domain.repository.CandidateProfileRepository;
 import ru.fsp.jobsearcher.domain.repository.VacancyApplicationRepository;
 import ru.fsp.jobsearcher.domain.repository.VacancyRepository;
 
@@ -30,8 +32,13 @@ class VacancyServiceTest {
     private final EmployerProfile employer = EmployerProfile.create(user.userId(), "Company");
     private final VacancyRepository vacancies = mock(VacancyRepository.class);
     private final EmployerService employers = mock(EmployerService.class);
-    private final VacancyService service = new VacancyService(vacancies, mock(VacancyApplicationRepository.class),
-            employers, mock(CandidateService.class));
+    private final VacancyService service = new VacancyService(
+            vacancies,
+            mock(VacancyApplicationRepository.class),
+            mock(CandidateProfileRepository.class),
+            mock(AppUserRepository.class),
+            employers,
+            mock(CandidateService.class));
     private final VacancyService.CreateRequest request = new VacancyService.CreateRequest(
             "Updated", "Description", "IT", "BACKEND", "JUNIOR", List.of("Java"), 100000, 150000, true);
 

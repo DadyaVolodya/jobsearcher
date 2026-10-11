@@ -24,6 +24,7 @@ import ru.fsp.jobsearcher.domain.enums.QuestionType;
 import ru.fsp.jobsearcher.domain.enums.UserRole;
 import ru.fsp.jobsearcher.domain.repository.CandidateProfileRepository;
 import ru.fsp.jobsearcher.domain.repository.GradeChangeLogRepository;
+import ru.fsp.jobsearcher.domain.repository.SurveySessionRepository;
 import ru.fsp.jobsearcher.domain.repository.TestItemRepository;
 import ru.fsp.jobsearcher.domain.repository.TestSessionRepository;
 
@@ -34,6 +35,7 @@ class TestingServiceTest {
         CandidateProfile profile = CandidateProfile.create(user.userId());
         profile.setIndustryCode("IT");
         profile.setSpecializationCode("BACKEND");
+        profile.setSurveyVector(Map.of("architecture", 0.7));
         TestItem item = new TestItem();
         item.setId(UUID.randomUUID());
         item.setCode("SUM");
@@ -50,7 +52,9 @@ class TestingServiceTest {
         var items = mock(TestItemRepository.class);
         var sessions = mock(TestSessionRepository.class);
         var logs = mock(GradeChangeLogRepository.class);
+        var surveys = mock(SurveySessionRepository.class);
         when(candidates.requireMine(user)).thenReturn(profile);
+        when(surveys.findByUserIdOrderByStartedAtDesc(user.userId())).thenReturn(List.of());
         when(items.findForSession("IT", "BACKEND", Grade.JUNIOR)).thenReturn(List.of(item));
         when(items.findAllById(anyList())).thenReturn(List.of(item));
         TestSession[] stored = new TestSession[1];
@@ -59,7 +63,7 @@ class TestingServiceTest {
             return stored[0];
         });
         when(sessions.findById(any())).thenAnswer(invocation -> Optional.ofNullable(stored[0]));
-        var service = new TestingService(candidates, profiles, items, sessions, logs,
+        var service = new TestingService(candidates, profiles, items, sessions, logs, surveys,
                 new GradeChangePolicy(30, Clock.systemUTC()));
 
         TestSession started = service.start(user, "JUNIOR");

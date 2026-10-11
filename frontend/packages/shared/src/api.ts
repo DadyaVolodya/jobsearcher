@@ -27,6 +27,23 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 export const get = <T>(path: string) => api<T>(path);
 export const post = <T>(path: string, data?: unknown) => api<T>(path, { method: 'POST', body: data === undefined ? undefined : JSON.stringify(data) });
 export const put = <T>(path: string, data: unknown) => api<T>(path, { method: 'PUT', body: JSON.stringify(data) });
+export async function download(path: string, filename: string) {
+  const headers = new Headers();
+  if (auth.mode === 'local') { headers.set('X-User-Email', auth.email); headers.set('X-User-Role', auth.role); }
+  else headers.set('Authorization', `Bearer ${await auth.token()}`);
+  const response = await fetch(`${baseUrl}${path}`, { headers });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({})) as { code?: string; message?: string };
+    throw new ApiError(response.status, data.code || `HTTP_${response.status}`, data.message || 'Не удалось скачать файл');
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 export function query(params: Record<string, string | number | boolean | null | undefined>) {
   const p = new URLSearchParams(); Object.entries(params).forEach(([k, v]) => { if (v !== null && v !== undefined && v !== '') p.set(k, String(v)); });
   return p.toString();

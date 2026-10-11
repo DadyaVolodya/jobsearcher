@@ -28,17 +28,34 @@ class GradeChangePolicyTest {
     }
 
     @Test
-    void weakJuniorFloorForcesJunior() {
-        assertThat(policy.resolveAssigned(Grade.SENIOR, 0.8, 0.4)).isEqualTo(Grade.JUNIOR);
-    }
-
-    @Test
     void passKeepsTarget() {
-        assertThat(policy.resolveAssigned(Grade.SENIOR, 0.7, 0.6)).isEqualTo(Grade.SENIOR);
+        GradeChangePolicy.Outcome o = policy.resolve(Grade.SENIOR, Grade.MIDDLE, 0.7, 0.6);
+        assertThat(o.assigned()).isEqualTo(Grade.SENIOR);
+        assertThat(o.confirmed()).isTrue();
+        assertThat(o.suggestedRetry()).isNull();
     }
 
     @Test
-    void failWithFloorGoesLower() {
-        assertThat(policy.resolveAssigned(Grade.SENIOR, 0.3, 0.6)).isEqualTo(Grade.MIDDLE);
+    void failDoesNotDemotePrevious() {
+        GradeChangePolicy.Outcome o = policy.resolve(Grade.SENIOR, Grade.MIDDLE, 0.3, 0.6);
+        assertThat(o.assigned()).isEqualTo(Grade.MIDDLE);
+        assertThat(o.confirmed()).isFalse();
+        assertThat(o.suggestedRetry()).isEqualTo(Grade.MIDDLE);
+    }
+
+    @Test
+    void weakFloorSuggestsJuniorWithoutDemotion() {
+        GradeChangePolicy.Outcome o = policy.resolve(Grade.SENIOR, Grade.SENIOR, 0.8, 0.4);
+        assertThat(o.assigned()).isEqualTo(Grade.SENIOR);
+        assertThat(o.confirmed()).isFalse();
+        assertThat(o.suggestedRetry()).isEqualTo(Grade.JUNIOR);
+    }
+
+    @Test
+    void firstFailKeepsClaimedTargetUnconfirmed() {
+        GradeChangePolicy.Outcome o = policy.resolve(Grade.MIDDLE, null, 0.2, 0.6);
+        assertThat(o.assigned()).isEqualTo(Grade.MIDDLE);
+        assertThat(o.confirmed()).isFalse();
+        assertThat(o.suggestedRetry()).isEqualTo(Grade.JUNIOR);
     }
 }

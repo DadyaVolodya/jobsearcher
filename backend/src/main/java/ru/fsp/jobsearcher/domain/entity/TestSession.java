@@ -6,6 +6,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -79,6 +80,10 @@ public class TestSession {
     @Enumerated(EnumType.STRING)
     @Column(name = "assigned_grade")
     private Grade assignedGrade;
+
+    /** Предлагаемый грейд для пересдачи при непрохождении (не пишется в БД). */
+    @Transient
+    private Grade suggestedRetryGrade;
 
     @Column(name = "started_at", nullable = false)
     private Instant startedAt;

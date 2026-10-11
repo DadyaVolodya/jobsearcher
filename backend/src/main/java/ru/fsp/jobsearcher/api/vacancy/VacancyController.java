@@ -58,7 +58,7 @@ public class VacancyController {
     }
 
     @GetMapping("/{id}/applications")
-    public List<VacancyApplication> vacancyApplications(@PathVariable UUID id) {
+    public List<VacancyService.ApplicationView> vacancyApplications(@PathVariable UUID id) {
         return vacancyService.vacancyApplications(securityUtils.requireCurrentUser(), id);
     }
 }

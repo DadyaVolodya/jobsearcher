@@ -4,7 +4,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import ru.fsp.jobsearcher.application.security.SecurityUtils;
+import ru.fsp.jobsearcher.application.service.CandidateProfilePdfService;
 import ru.fsp.jobsearcher.application.service.CandidateService;
 import ru.fsp.jobsearcher.application.service.ResumeParseService;
 import ru.fsp.jobsearcher.domain.entity.CandidateProfile;
@@ -28,10 +31,19 @@ public class CandidateController {
     private final SecurityUtils securityUtils;
     private final CandidateService candidateService;
     private final ResumeParseService resumeParseService;
+    private final CandidateProfilePdfService candidateProfilePdfService;
 
     @GetMapping("/profile")
     public CandidateProfile profile() {
         return candidateService.requireMine(securityUtils.requireCurrentUser());
+    }
+
+    @GetMapping(value = "/profile.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> profilePdf() {
+        byte[] pdf = candidateProfilePdfService.exportMine(securityUtils.requireCurrentUser());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"candidate-profile.pdf\"")
+                .body(pdf);
     }
 
     @PutMapping("/profile")
