@@ -1,8 +1,25 @@
-# Jobsearcher (ФСП) — backend
+# Jobsearcher / ФСП Карьера
 
 Цифровая платформа подбора ИТ-специалистов с обратной механикой: кандидат проходит опрос и тест, получает категорию; работодатель ищет по категориям и сам направляет приглашение.
 
-## Быстрый старт
+Репозиторий: https://github.com/DadyaVolodya/jobsearcher (ветка `vorobev`)
+
+## Демо для жюри (UI + API)
+
+```bash
+cp .env.example .env
+docker compose -f docker-compose.demo.yml up -d --build
+# кандидат:     http://localhost/candidate/
+# работодатель: http://localhost/employer/
+# swagger:      http://localhost/swagger-ui.html
+```
+
+Облако (Render / Railway / VPS): [docs/DEMO_CLOUD.md](docs/DEMO_CLOUD.md)  
+Презентация: [docs/presentation/FSP_Jobsearcher_presentation.pptx](docs/presentation/FSP_Jobsearcher_presentation.pptx)
+
+Демо-логины: `candidate1@example.com` / `employer1@example.com` (роль выбирается в UI).
+
+## Backend only
 
 ```bash
 cp .env.example .env

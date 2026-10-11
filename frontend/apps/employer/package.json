@@ -1,0 +1,5 @@
+{
+  "name": "@jobsearcher/employer", "private": true, "type": "module",
+  "scripts": { "dev": "vite --host 0.0.0.0 --port 5180", "build": "vite build" },
+  "dependencies": { "@jobsearcher/shared": "*", "react": "^19.1.0", "react-dom": "^19.1.0" }
+}

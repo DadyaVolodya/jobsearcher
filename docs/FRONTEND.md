@@ -150,7 +150,7 @@ Local: `X-User-Email` + `X-User-Role`
 
 | Method | Path | Body |
 |--------|------|------|
-| POST | `/invitations` | `candidateId, needId?, vacancyId?, message, salaryFrom, salaryTo` |
+| POST | `/invitations` | `candidateId, needId?, vacancyId?, message, salaryFrom, salaryTo` (макс. **100000000** ₽; иначе 400, не Internal error) |
 | GET | `/invitations` | свои |
 | POST | `/invitations/{id}/status` | `{status:"ACCEPTED"\|"DECLINED"\|"VIEWED", declineReason?}` |
 
@@ -164,8 +164,9 @@ Local: `X-User-Email` + `X-User-Role`
 
 | Method | Path | Body |
 |--------|------|------|
-| GET | `/chats` | threads (ЗП, статус, contactsRevealed) |
-| GET | `/chats/{threadId}/messages` | |
+| GET | `/chats` | threads (+ `unreadCount`) |
+| GET | `/chats/unread` | `{unreadTotal, threads:[{threadId,unreadCount}]}` для бейджа в сайдбаре |
+| GET | `/chats/{threadId}/messages` | открытие чата помечает прочитанным |
 | POST | `/chats/{threadId}/messages` | `{body}` |
 
 Чат создаётся вместе с приглашением (прямым или по вакансии).  

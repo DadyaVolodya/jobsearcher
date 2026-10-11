@@ -29,6 +29,11 @@ public class ChatController {
         return chatService.list(securityUtils.requireCurrentUser());
     }
 
+    @GetMapping("/unread")
+    public ChatService.UnreadSummary unread() {
+        return chatService.unreadSummary(securityUtils.requireCurrentUser());
+    }
+
     @GetMapping("/{threadId}/messages")
     public List<ChatMessage> messages(@PathVariable UUID threadId) {
         return chatService.messages(securityUtils.requireCurrentUser(), threadId);

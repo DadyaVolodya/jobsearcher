@@ -42,8 +42,10 @@ public class InvitationService {
         if (!candidate.isPublished() || candidate.getCategoryCode() == null) {
             throw ApiException.badState("Кандидат недоступен для приглашения");
         }
-        if (req.salaryFrom() <= 0 || req.salaryTo() < req.salaryFrom()) {
-            throw ApiException.badState("Зарплата обязательна до начала общения: диапазон от–до в рублях");
+        int salaryFrom = requireSalary(req.salaryFrom(), "salaryFrom");
+        int salaryTo = requireSalary(req.salaryTo(), "salaryTo");
+        if (salaryTo < salaryFrom) {
+            throw ApiException.badState("Зарплата обязательна до начала общения: salaryTo не меньше salaryFrom");
         }
         Invitation inv = new Invitation();
         inv.setId(UUID.randomUUID());
@@ -52,8 +54,8 @@ public class InvitationService {
         inv.setNeedId(req.needId());
         inv.setVacancyId(req.vacancyId());
         inv.setMessage(req.message());
-        inv.setSalaryFrom(req.salaryFrom());
-        inv.setSalaryTo(req.salaryTo());
+        inv.setSalaryFrom(salaryFrom);
+        inv.setSalaryTo(salaryTo);
         inv.setStatus(InvitationStatus.SENT);
         Instant now = Instant.now();
         inv.setCreatedAt(now);
@@ -139,13 +141,27 @@ public class InvitationService {
         );
     }
 
+    /** Лимит INT в БД и здравый диапазон зарплаты в рублях. */
+    public static final int MAX_SALARY = 100_000_000;
+
+    private static int requireSalary(Long value, String field) {
+        if (value == null || value <= 0) {
+            throw ApiException.badState("Зарплата обязательна: укажите " + field + " в рублях");
+        }
+        if (value > MAX_SALARY) {
+            throw ApiException.badState(
+                    "Слишком большая зарплата в поле " + field + " (максимум " + MAX_SALARY + " ₽)");
+        }
+        return value.intValue();
+    }
+
     public record CreateRequest(
             UUID candidateId,
             UUID needId,
             UUID vacancyId,
             String message,
-            int salaryFrom,
-            int salaryTo
+            Long salaryFrom,
+            Long salaryTo
     ) {
     }
 

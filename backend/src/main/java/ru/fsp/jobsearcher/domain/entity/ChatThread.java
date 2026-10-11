@@ -32,4 +32,10 @@ public class ChatThread {
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
+
+    @Column(name = "candidate_last_read_at")
+    private Instant candidateLastReadAt;
+
+    @Column(name = "employer_last_read_at")
+    private Instant employerLastReadAt;
 }

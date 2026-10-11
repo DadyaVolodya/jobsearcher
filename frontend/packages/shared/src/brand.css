@@ -1,0 +1,27 @@
+/* FSP brand tokens and locally bundled fonts. Component rules live in styles.css. */
+@font-face {
+  font-family: 'JetBrains Mono FSP';
+  src: url('./assets/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono FSP';
+  src: url('./assets/JetBrainsMono-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+
+:root {
+  font-family: Manrope,Arial,sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --fsp-mono: 'JetBrains Mono FSP', monospace;
+  color: var(--fsp-ink);
+  background: #f6f6f8;
+  --fsp-violet: #4634ff;
+  --fsp-red: #ec1d35;
+  --fsp-ink: #16151c;
+}

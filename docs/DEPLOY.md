@@ -6,13 +6,21 @@
 - Java 21 (для локальной разработки)
 - Порты: 8080 (app), 8081 (Keycloak), 5432 (Postgres)
 
-## Docker
+## Docker (полный стек с Keycloak)
 
 ```bash
 cp .env.example .env
 docker compose up -d --build
 curl -sf http://localhost:8080/actuator/health
 ```
+
+## Демо-стенд (UI + API, без Keycloak)
+
+```bash
+docker compose -f docker-compose.demo.yml up -d --build
+```
+
+Публичный выкат: [DEMO_CLOUD.md](DEMO_CLOUD.md) (Render / Railway / VPS).
 
 ## Local app + Docker deps
 

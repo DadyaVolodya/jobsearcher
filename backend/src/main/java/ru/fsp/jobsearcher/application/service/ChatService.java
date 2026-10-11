@@ -65,8 +65,19 @@ public class ChatService {
     }
 
     @Transactional(readOnly = true)
+    public UnreadSummary unreadSummary(CurrentUser user) {
+        List<ThreadView> threads = list(user);
+        int total = threads.stream().mapToInt(ThreadView::unreadCount).sum();
+        return new UnreadSummary(total, threads.stream()
+                .filter(t -> t.unreadCount() > 0)
+                .map(t -> new UnreadThread(t.id(), t.unreadCount()))
+                .toList());
+    }
+
+    @Transactional
     public List<ChatMessage> messages(CurrentUser user, UUID threadId) {
         ChatThread thread = requireAccess(user, threadId);
+        markRead(user, thread);
         return chatMessageRepository.findByThreadIdOrderByCreatedAtAsc(thread.getId());
     }
 
@@ -87,7 +98,19 @@ public class ChatService {
         msg.setSenderUserId(user.userId());
         msg.setBody(body.trim());
         msg.setCreatedAt(Instant.now());
-        return chatMessageRepository.save(msg);
+        ChatMessage saved = chatMessageRepository.save(msg);
+        markRead(user, thread);
+        return saved;
+    }
+
+    private void markRead(CurrentUser user, ChatThread thread) {
+        Instant now = Instant.now();
+        if (user.role() == UserRole.CANDIDATE) {
+            thread.setCandidateLastReadAt(now);
+        } else {
+            thread.setEmployerLastReadAt(now);
+        }
+        chatThreadRepository.save(thread);
     }
 
     private ChatThread requireAccess(CurrentUser user, UUID threadId) {
@@ -105,6 +128,15 @@ public class ChatService {
             }
         }
         return thread;
+    }
+
+    private int unreadFor(ChatThread t, CurrentUser viewer) {
+        Instant since = viewer.role() == UserRole.CANDIDATE
+                ? t.getCandidateLastReadAt()
+                : t.getEmployerLastReadAt();
+        // Epoch instead of null: Postgres cannot infer type for "? is null" bind.
+        Instant after = since == null ? Instant.EPOCH : since;
+        return (int) chatMessageRepository.countUnread(t.getId(), viewer.userId(), after);
     }
 
     private ThreadView toView(ChatThread t, CurrentUser viewer) {
@@ -134,8 +166,15 @@ public class ChatService {
                 candPhone,
                 reveal ? (employer == null ? null : employer.getContactEmail()) : null,
                 reveal ? (employer == null ? null : employer.getContactPhone()) : null,
+                unreadFor(t, viewer),
                 t.getCreatedAt()
         );
+    }
+
+    public record UnreadSummary(int unreadTotal, List<UnreadThread> threads) {
+    }
+
+    public record UnreadThread(UUID threadId, int unreadCount) {
     }
 
     public record ThreadView(
@@ -153,6 +192,7 @@ public class ChatService {
             String candidatePhone,
             String employerEmail,
             String employerPhone,
+            int unreadCount,
             Instant createdAt
     ) {
     }

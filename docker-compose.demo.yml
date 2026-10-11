@@ -1,0 +1,51 @@
+# Публичное демо без Keycloak (dev-auth по email).
+# Подходит для Render / Railway / любой VPS с Docker Compose.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: jobsearcher
+      POSTGRES_USER: jobsearcher
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-jobsearcher}
+    volumes:
+      - pgdata_demo:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jobsearcher -d jobsearcher"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/jobsearcher
+      DB_USER: jobsearcher
+      DB_PASSWORD: ${DB_PASSWORD:-jobsearcher}
+      SECURITY_PERMIT_ALL: "true"
+      OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
+      INFERECO_API_KEY: ${INFERECO_API_KEY:-}
+      STORAGE_ROOT: /data/uploads
+      CORS_ORIGINS: "*"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./storage/uploads:/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api/v1
+    ports:
+      - "80:80"
+    depends_on:
+      - app
+
+volumes:
+  pgdata_demo:

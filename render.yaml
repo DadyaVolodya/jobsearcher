@@ -1,0 +1,40 @@
+# Render Blueprint — API + Postgres. UI: docker-compose.demo.yml на VPS
+# или отдельный Static/Web с VITE_API_URL на этот API.
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: jobsearcher-api
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SECURITY_PERMIT_ALL
+        value: "true"
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: STORAGE_ROOT
+        value: /tmp/uploads
+      - key: DB_URL
+        sync: false
+      - key: DB_USER
+        fromDatabase:
+          name: jobsearcher-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: jobsearcher-db
+          property: password
+      - key: OLLAMA_API_KEY
+        sync: false
+      - key: INFERECO_API_KEY
+        sync: false
+
+databases:
+  - name: jobsearcher-db
+    plan: free
+    region: frankfurt
+    databaseName: jobsearcher
+    user: jobsearcher
