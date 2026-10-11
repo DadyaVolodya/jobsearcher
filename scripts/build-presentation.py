@@ -1,132 +1,113 @@
 #!/usr/bin/env python3
-"""Заполняет обязательные слайды 7–11 шаблона ФСП, сохраняя дизайн."""
+"""Сборка презентации ФСП: слайды 7–11 по образцу «хулиганы», пустые после 11 удаляются."""
 from __future__ import annotations
 
-from copy import deepcopy
 from pathlib import Path
 
 from pptx import Presentation
-from pptx.enum.shapes import MSO_SHAPE_TYPE
+from pptx.slide import Slide
 
 SRC = Path("/Users/sparrow/Downloads/ФСП 2/ЛЦТ_2026_Шаблон презентации ФСП.pptx")
-OUT = Path(__file__).resolve().parents[1] / "docs" / "presentation" / "FSP_Jobsearcher_presentation.pptx"
+OUT_DIR = Path(__file__).resolve().parents[1] / "docs" / "presentation"
+OUT_PPTX = OUT_DIR / "FSP_Jobsearcher_presentation.pptx"
+OUT_PDF = OUT_DIR / "FSP_Jobsearcher_presentation.pdf"
 
 
 def set_text(shape, text: str) -> None:
+    """Replace text keeping first-run formatting; reuse existing paragraphs."""
     if not shape.has_text_frame:
         return
+    lines = text.split("\n") if text else [""]
     tf = shape.text_frame
-    paragraphs = text.split("\n")
-    # keep first paragraph formatting; clear extras
+    # Ensure enough paragraphs
+    while len(tf.paragraphs) < len(lines):
+        tf.add_paragraph()
     for i, para in enumerate(tf.paragraphs):
-        if i == 0:
-            if para.runs:
-                para.runs[0].text = paragraphs[0] if paragraphs else ""
-                for run in para.runs[1:]:
-                    run.text = ""
-            else:
-                para.text = paragraphs[0] if paragraphs else ""
-        else:
-            for run in para.runs:
+        value = lines[i] if i < len(lines) else ""
+        if para.runs:
+            para.runs[0].text = value
+            for run in para.runs[1:]:
                 run.text = ""
-            para.text = ""
-    # add remaining paragraphs by cloning first paragraph style via text_frame
-    first = tf.paragraphs[0]
-    for extra in paragraphs[1:]:
-        p = tf.add_paragraph()
-        p.alignment = first.alignment
-        if first.runs:
-            # copy font basics
-            run = p.add_run()
-            run.text = extra
-            src = first.runs[0].font
-            if src.size:
-                run.font.size = src.size
-            if src.bold is not None:
-                run.font.bold = src.bold
-            if src.name:
-                run.font.name = src.name
-            try:
-                if src.color and src.color.rgb:
-                    run.font.color.rgb = src.color.rgb
-            except Exception:
-                pass
         else:
-            p.text = extra
+            para.text = value
+        if i > 0 and i < len(lines) and tf.paragraphs[0].runs:
+            # copy basic font from first paragraph when we added empty paras
+            src = tf.paragraphs[0].runs[0].font
+            if para.runs:
+                if src.size:
+                    para.runs[0].font.size = src.size
+                if src.name:
+                    para.runs[0].font.name = src.name
 
 
-def replace_placeholder(shape, mapping: dict[str, str]) -> None:
-    if not shape.has_text_frame:
-        return
-    full = "\n".join(p.text for p in shape.text_frame.paragraphs)
-    for old, new in mapping.items():
-        if old in full:
-            set_text(shape, full.replace(old, new))
-            return
-    # exact full replace keys
-    if full.strip() in mapping:
-        set_text(shape, mapping[full.strip()])
+def delete_slide(prs: Presentation, index: int) -> None:
+    sld_id = prs.slides._sldIdLst[index]
+    r_id = sld_id.rId
+    prs.part.drop_rel(r_id)
+    prs.slides._sldIdLst.remove(sld_id)
 
 
-def main() -> None:
-    prs = Presentation(str(SRC))
-    # --- slide 7 (index 6): title ---
-    s7 = prs.slides[6]
-    for sh in s7.shapes:
-        if sh.has_text_frame and "Цифровая платформа" in sh.text_frame.text:
-            set_text(
-                sh,
-                "ФСП Карьера — платформа подбора ИТ-специалистов\n"
-                "с подтверждённым грейдом и приоритетом достижений ФСП",
-            )
-        # title placeholder often empty named Заголовок
-        if sh.name.startswith("Заголовок") and (not sh.has_text_frame or not sh.text_frame.text.strip()):
+def fill_slide7(slide: Slide) -> None:
+    for sh in slide.shapes:
+        if not sh.has_text_frame:
+            continue
+        if sh.name.startswith("Заголовок"):
             set_text(sh, "ФСП Карьера")
+        elif "Цифровая платформа" in sh.text_frame.text or sh.name.startswith("Текст"):
+            if sh.text_frame.text.strip() or "Цифровая" in sh.text_frame.text:
+                set_text(
+                    sh,
+                    "Платформа подбора ИТ-специалистов\n"
+                    "с подтверждённым грейдом и приоритетом достижений ФСП",
+                )
 
-    # --- slide 8 ---
-    s8 = prs.slides[7]
-    for sh in s8.shapes:
+
+def fill_slide8(slide: Slide) -> None:
+    for sh in slide.shapes:
         if not sh.has_text_frame:
             continue
         t = sh.text_frame.text
         if t.startswith("Капитан:"):
             set_text(
                 sh,
-                "Капитан: Александр Воробьёв, backend / архитектура\n"
-                "Кол-во участников: 2+ (backend + frontend)\n"
-                "Краткое описание: команда вокруг продукта «ФСП Карьера»\n"
-                "как образовалась команда: хакатон ЛЦТ 2026, спецный трек ФСП\n"
-                "место работы/учебы участников: ИТ-разработка\n"
-                "Город и регион: Россия",
+                "Капитан: Воробьев А. В., бэкенд-разработчик\n"
+                "Кол-во участников: 2 человека\n"
+                "Краткое описание: команда сложилась вокруг общих интересов\n"
+                "и стремления довести практическую задачу до рабочего результата.\n"
+                "Города: Пенза и Тула",
             )
         elif t.strip() == "В чем суть вашего решения":
             set_text(
                 sh,
-                "Кандидат проходит анкету и тест, получает категорию и грейд. "
-                "Работодатель ищет по подтверждённым навыкам и сам направляет приглашение с зарплатой до начала чата.",
+                "Кандидат проходит анкету и тест, получает категорию и грейд.\n"
+                "Работодатель ищет по подтверждённым навыкам и сам направляет\n"
+                "приглашение с зарплатой до начала чата.",
             )
         elif t.strip() == "Что делает ваше решение уникальным или инновационным?":
             set_text(
                 sh,
-                "Обратная механика подбора: не отклик «вслепую», а адресное приглашение. "
-                "Грейд только тестом; достижения ФСП поднимают в выдаче. Контакты скрыты до ACCEPT.",
+                "Обратная механика подбора: адресное приглашение, а не отклик «вслепую».\n"
+                "Грейд только тестом; достижения ФСП поднимают в выдаче.\n"
+                "Контакты скрыты до принятия предложения.",
             )
-        # labels stay; content boxes are the two prompts above
         elif sh.name.startswith("Заголовок"):
             set_text(sh, "ФСП Карьера")
 
-    # --- slide 9: team cards ---
-    s9 = prs.slides[8]
+
+def fill_slide9(slide: Slide) -> None:
     members = [
-        ("Александр Воробьёв", "Капитан, backend\nGitHub: DadyaVolodya\nvorobev@topcase.ru\nИТ-разработка"),
-        ("Frontend-партнёр", "Frontend / UX\nЛК кандидата и работодателя\nбрендбук ФСП\nИТ-разработка"),
-        ("QA / демо", "Тесты и стенд\nсценарии жюри\nseed-данные\nИТ"),
-        ("Документация", "ТЗ 3.4, презентация\nконтракт API\nDEPLOY / DEMO\nИТ"),
-        ("Поддержка демо", "Стенд и доступы\nдемо-аккаунты\nсопровождение показа\nИТ"),
+        (
+            "Воробьев Александр",
+            "Капитан, бэкенд-разработчик\n@AleksandrCaptainSparrow\n+79513583328\nг. Пенза",
+        ),
+        (
+            "Егоров Дмитрий",
+            "Frontend-разработчик\n@Egorov00\n+79066284052\nг. Тула",
+        ),
     ]
     name_boxes = []
     role_boxes = []
-    for sh in s9.shapes:
+    for sh in slide.shapes:
         if not sh.has_text_frame:
             continue
         txt = sh.text_frame.text.strip()
@@ -138,117 +119,98 @@ def main() -> None:
             set_text(sh, "Команда «ФСП Карьера»")
     name_boxes.sort(key=lambda s: s.left)
     role_boxes.sort(key=lambda s: s.left)
-    for i, (name, role) in enumerate(members):
-        if i < len(name_boxes):
-            set_text(name_boxes[i], name)
-        if i < len(role_boxes):
-            set_text(role_boxes[i], role)
+    for i, sh in enumerate(name_boxes):
+        if i < len(members):
+            set_text(sh, members[i][0])
+        else:
+            set_text(sh, "")
+    for i, sh in enumerate(role_boxes):
+        if i < len(members):
+            set_text(sh, members[i][1])
+        else:
+            set_text(sh, "")
 
-    # --- slide 10 ---
-    s10 = prs.slides[9]
-    for sh in s10.shapes:
+
+def fill_slide10(slide: Slide) -> None:
+    for sh in slide.shapes:
         if not sh.has_text_frame:
             continue
         t = sh.text_frame.text
-        if "как вы собрались" in t:
+        if sh.name.startswith("Заголовок"):
+            set_text(sh, "О команде и пути к решению")
+        elif "как вы собрались" in t:
             set_text(
                 sh,
-                "Собрались под спец. трек ФСП на ЛЦТ 2026: backend на Spring, фронт кабинетов по брендбуку. "
-                "Цель — рабочий стенд с объяснимым подбором и зарплатой до чата.",
+                "Мы объединились благодаря общим интересам и желанию решить\n"
+                "практическую задачу спец. трека ФСП. В команде дополняют друг друга\n"
+                "компетенции в backend-сервисах и фронтенде личных кабинетов.",
             )
         elif "Почему вы выбрали именно эту задачу" in t:
-            set_text(
-                sh,
-                "Близкая предметная область: тестирование, категории, Fair matching. "
-                "Можно показать измеримый эффект достижений ФСП в выдаче, а не только «ещё один job board».",
-            )
+            set_text(sh, "Почему выбрали эту задачу")
         elif "Что вас вдохновило" in t:
             set_text(
                 sh,
-                "Проблема недоверия к самооценке в резюме и непрозрачных откликов. "
-                "Хочется, чтобы работодатель видел подтверждённый грейд и спортивную историю ФСП.",
+                "Задача даёт прикладной результат для рынка труда и сочетает\n"
+                "тестирование навыков с объяснимым подбором. Можно опереться\n"
+                "на сильные стороны каждого участника.",
             )
+        elif "сложностями или вызовами" in t:
+            set_text(sh, "Сложности и вызовы")
         elif "самых интересных или сложных моментах" in t:
             set_text(
                 sh,
-                "Антисписывание в тестах, обязательная зарплата в invite без падений API, "
-                "152-ФЗ согласия с вложениями, непрочитанные сообщения в сайдбаре. "
-                "Решили лимитами зарплаты, read-receipts и seed для демо жюри.",
+                "Основные вызовы - антисписывание в тестах, обязательная зарплата\n"
+                "в приглашении без падений API, согласия 152-ФЗ и непрочитанные\n"
+                "сообщения. Справились за счёт чёткого разделения ролей\n"
+                "и фиксации решений в контракте API.",
             )
-        elif sh.name.startswith("Заголовок"):
-            set_text(sh, "История и вызовы команды")
 
-    # --- slide 11 ---
-    s11 = prs.slides[10]
-    for sh in s11.shapes:
+
+def fill_slide11(slide: Slide) -> None:
+    for sh in slide.shapes:
         if not sh.has_text_frame:
             continue
         t = sh.text_frame.text.strip()
         if t.startswith("Опишите в чем техническая"):
             set_text(
                 sh,
-                "Java 21 / Spring Boot, PostgreSQL, Flyway, OpenAPI. "
-                "Опрос + параметризованный тест A/B/C → categoryCode. "
-                "Matching с explain и бустом ФСП. "
-                "Приглашения с salary first, чаты, unread badge. "
-                "Dev-auth для демо, Keycloak для prod. Docker Compose / Render.",
+                "Java 21 + Spring Boot, PostgreSQL, Flyway, OpenAPI, Docker Compose.\n"
+                "Конвейер: анкета → тест A/B/C → categoryCode → matching с explain и бустом ФСП.\n"
+                "Приглашения salary-first, чаты, unread; кабинеты candidate / employer (React).",
             )
         elif t.startswith("Опишите ваши идеи по дальнейшему"):
             set_text(
                 sh,
-                "Боевой реестр ФСП и Keycloak IdP, расширенный банк заданий, "
-                "SMTP-уведомления, PDF-профиль, публичный HTTPS-стенд для работодателей-партнёров ФСП, "
-                "метрики качества подбора на закрытом датасете жюри.",
+                "Платформа для работодателей и участников ФСП: подтверждённый грейд до контакта.\n"
+                "Дальше: боевой реестр ФСП, Keycloak, расширенный банк заданий, PDF-профиль.\n"
+                "Развёртывание: docker compose -f docker-compose.demo.yml up -d --build",
             )
-        elif t == "КОРОТКО О РЕШЕНИИ":
-            pass  # keep
 
-    # Optional content slides 12–14: fill empty numbered slides with key messages if they have placeholders
-    content_extra = {
-        11: (  # slide 12
-            "Архитектура",
-            "Монолит со слоями: api / application / domain / infrastructure.\n"
-            "PostgreSQL + Flyway V1–V6. LLM: Ollama primary, Infereco fallback.\n"
-            "Кабинеты: candidate + employer (Vite/React).",
-        ),
-        12: (
-            "Пользовательский сценарий",
-            "1) Кандидат: согласия → профиль → анкета → тест → publish\n"
-            "2) Работодатель: потребность → matching → invite с ЗП\n"
-            "3) Кандидат: accept → контакты и чат; бейдж непрочитанных",
-        ),
-        13: (
-            "Демо и репозиторий",
-            "GitHub: https://github.com/DadyaVolodya/jobsearcher (ветка vorobev)\n"
-            "Демо: docker compose -f docker-compose.demo.yml up -d --build\n"
-            "Аккаунты: candidate1@ / employer1@ example.com\n"
-            "Документация: docs/* + docs/DEMO_CLOUD.md",
-        ),
-    }
-    for idx, (title, body) in content_extra.items():
-        if idx >= len(prs.slides):
-            break
-        slide = prs.slides[idx]
-        # try set first empty-ish text boxes
-        texts = [sh for sh in slide.shapes if sh.has_text_frame]
-        # Prefer large placeholders
-        for sh in texts:
-            if sh.name.startswith("Заголовок") or (sh.has_text_frame and sh.text_frame.text.strip() in {"", str(idx + 1)}):
-                if sh.text_frame.text.strip() == str(idx + 1):
-                    continue
-                set_text(sh, title)
-                break
-        # find a large text body placeholder
-        for sh in texts:
-            if sh == texts[0]:
-                continue
-            if sh.has_text_frame and len(sh.text_frame.text.strip()) <= 3:
-                set_text(sh, body)
-                break
 
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    prs.save(str(OUT))
-    print(f"Wrote {OUT}")
+def main() -> None:
+    if not SRC.exists():
+        raise SystemExit(f"Нет шаблона: {SRC}")
+    prs = Presentation(str(SRC))
+    fill_slide7(prs.slides[6])
+    fill_slide8(prs.slides[7])
+    fill_slide9(prs.slides[8])
+    fill_slide10(prs.slides[9])
+    fill_slide11(prs.slides[10])
+
+    # удалить всё после 11-го слайда (пустые шаблоны / иконки)
+    while len(prs.slides) > 11:
+        delete_slide(prs, len(prs.slides) - 1)
+
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    prs.save(str(OUT_PPTX))
+    print(f"Wrote {OUT_PPTX} ({len(prs.slides)} slides)")
+
+    # verify
+    check = Presentation(str(OUT_PPTX))
+    assert len(check.slides) == 11, len(check.slides)
+    for i, s in enumerate(check.slides, 1):
+        texts = [sh.text_frame.text.strip() for sh in s.shapes if sh.has_text_frame and sh.text_frame.text.strip()]
+        print(f"slide {i}: {len(texts)} text boxes, sample={texts[0][:60]!r}" if texts else f"slide {i}: empty?")
 
 
 if __name__ == "__main__":
