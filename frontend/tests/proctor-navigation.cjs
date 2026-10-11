@@ -10,13 +10,15 @@ const session = { id: 'test-1', status: 'IN_PROGRESS', items: [{ itemId: 'item-1
 const completed = { ...session, status: 'COMPLETED', score: 1, assignedGrade: 'JUNIOR', gradeConfirmed: true };
 const proctors = [];
 let submitFails = false;
-async function setup(browser, port, width = 1440) {
+async function setup(browser, port, width = 1440, overrideApi) {
   const role = port === 5173 ? 'CANDIDATE' : 'EMPLOYER';
   const page = await browser.newPage({ viewport: { width, height: 1000 } });
   await page.route('http://localhost:' + port + '/**', async route => {
     const url = new URL(route.request().url());
     if (url.pathname.startsWith('/api/v1')) {
       const endpoint = url.pathname.slice(7);
+      const override = overrideApi ? await overrideApi(endpoint, route.request()) : undefined;
+      if (override !== undefined) return route.fulfill({ contentType: 'application/json', body: JSON.stringify(override) });
       let data = [];
       if (endpoint === '/me') data = { userId: 'user-1', email: role === 'CANDIDATE' ? 'candidate1@example.com' : 'employer1@example.com', role, emailVerified: true, consents: [] };
       if (endpoint === '/candidate/profile') data = { fullName: null, claimedGrade: 'JUNIOR', stack: [], softSkills: [] };
@@ -35,7 +37,8 @@ async function setup(browser, port, width = 1440) {
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify(data) });
     }
     const app = role === 'CANDIDATE' ? 'candidate' : 'employer';
-    const file = path.join(__dirname, '..', 'apps', app, 'dist', url.pathname === '/' ? 'index.html' : url.pathname);
+    const pathname = url.pathname.replace(new RegExp('^/' + app + '/'), '/');
+    const file = path.join(__dirname, '..', 'apps', app, 'dist', pathname === '/' ? 'index.html' : pathname);
     const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.woff2': 'font/woff2' }[path.extname(file)];
     if (!fs.existsSync(file)) return route.fulfill({ status: 404 });
     await route.fulfill({ contentType: mime, body: fs.readFileSync(file) });
@@ -43,7 +46,7 @@ async function setup(browser, port, width = 1440) {
   return page;
 }
 async function startTest(page) {
-  await page.goto('http://localhost:5173/#testing', { waitUntil: 'networkidle' });
+  await page.goto('http://localhost:5173/candidate/#testing', { waitUntil: 'networkidle' });
   await page.getByRole('button', { name: '\u041d\u0430\u0447\u0430\u0442\u044c \u0441 \u0430\u043d\u043a\u0435\u0442\u044b' }).click();
   await page.locator('input[type=radio]').check();
   await page.locator('.form-actions .button.primary').click();
@@ -51,7 +54,8 @@ async function startTest(page) {
   assert.equal(await page.locator('.nav-link:not(:disabled)').count(), 0, 'Navigation must lock while starting');
   await page.locator('.test-screen').waitFor();
 }
-(async () => {
+module.exports = { setup };
+if (require.main === module) (async () => {
   const browser = await chromium.launch({
     ...(process.env.PROCTOR_BROWSER_PATH ? { executablePath: process.env.PROCTOR_BROWSER_PATH } : { channel: 'chrome' }),
     headless: true,

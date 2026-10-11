@@ -10,7 +10,8 @@
     "dev:employer": "npm run dev -w @jobsearcher/employer",
     "build": "npm run build -w @jobsearcher/candidate && npm run build -w @jobsearcher/employer",
     "typecheck": "tsc --noEmit -p packages/shared && tsc --noEmit -p apps/candidate && tsc --noEmit -p apps/employer",
-    "test:proctor": "npm run build -w @jobsearcher/candidate -- --configLoader runner && node tests/proctor-navigation.cjs"
+    "test:proctor": "npm run build -w @jobsearcher/candidate -- --configLoader runner && node tests/proctor-navigation.cjs",
+    "test:chat": "npm run build -w @jobsearcher/candidate -- --configLoader runner && node tests/chat-refresh.cjs"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",

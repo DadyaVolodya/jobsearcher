@@ -24,4 +24,13 @@
   --fsp-violet: #4634ff;
   --fsp-red: #ec1d35;
   --fsp-ink: #16151c;
+  --fsp-radius-sm: 8px;
+  --fsp-radius-control: 12px;
+  --fsp-radius-card: 20px;
+  --fsp-radius-hero: 24px;
+  --fsp-radius-pill: 999px;
+  --fsp-border: #e5e2f0;
+  --fsp-surface-soft: #f3f0ff;
+  --fsp-shadow-card: 0 4px 20px #30245b06;
+  --fsp-shadow-raised: 0 12px 32px #30245b10;
 }

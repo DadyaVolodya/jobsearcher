@@ -13,10 +13,36 @@ export function ChatPanel() {
   const [body, setBody] = useState('');
   const messages = useResource(() => selected ? get<ChatMessage[]>(`/chats/${selected}/messages`) : Promise.resolve([]), [selected]);
   const send = useMutation();
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const refresh = async () => {
+      try {
+        if (!document.hidden) {
+          const nextMessages = selected ? await get<ChatMessage[]>(`/chats/${selected}/messages`) : [];
+          const nextThreads = await get<Thread[]>('/chats');
+          if (!cancelled) {
+            messages.setData(nextMessages);
+            threads.setData(nextThreads);
+          }
+        }
+      } catch {
+        // Keep the current conversation visible and retry on the next poll.
+      } finally {
+        if (!cancelled) timer = setTimeout(refresh, 5000);
+      }
+    };
+    timer = setTimeout(refresh, 5000);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [selected, me?.userId]);
   useEffect(() => { if (!selected && threads.data?.length) setSelected(threads.data[0].id); }, [threads.data, selected]);
   useEffect(() => {
     if (!selected || messages.loading || messages.error) return;
-    void threads.reload();
+    let cancelled = false;
+    void get<Thread[]>('/chats').then(data => {
+      if (!cancelled) threads.setData(data);
+    }).catch(() => {});
+    return () => { cancelled = true; };
   }, [selected, messages.loading, messages.data?.length]);
   const thread = threads.data?.find(t => t.id === selected);
   async function submit(e: FormEvent) {

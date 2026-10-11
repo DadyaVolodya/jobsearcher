@@ -23,6 +23,29 @@
 - кандидат: `candidate1@example.com` (роль CANDIDATE)
 - работодатель: `employer1@example.com` (роль EMPLOYER)
 
+V5 наполняет новую базу только при `DEMO_SEED_ENABLED=true` (флаг включён в
+`docker-compose.demo.yml`). Если один из демо-аккаунтов уже существует, наполнение
+пропускается. Обычный backend запускается без демо-наполнения.
+
+### Обновление стенда со старой V5
+
+V5 исправлена: удаление аккаунтов и связанных данных убрано. Если старая V5 уже
+применена, Flyway сообщит о несовпадении checksum. Для демо, данные которого можно
+удалить, пересоздайте базу следующими командами из корня репозитория:
+
+```powershell
+docker compose -f docker-compose.demo.yml down --volumes
+docker compose -f docker-compose.demo.yml up -d --build
+```
+
+Первая команда удаляет базу **демо-стека** со всеми аккаунтами, перепиской и
+результатами тестов. Каталог `storage/uploads` остаётся на диске.
+
+Если ранее запускали обычный `docker-compose.yml`, для сброса **его базы** используйте
+`docker compose down --volumes`, затем `docker compose up -d --build`. Демо-наполнение
+в обычном стеке выключено. Флаг наполнения задаётся при первом применении V5;
+изменение флага после миграции не запускает наполнение повторно.
+
 ## Вариант A. Один VPS + Docker Compose (предпочтительно)
 
 На машине с Docker:
@@ -51,6 +74,7 @@ DB_USER=<user>
 DB_PASSWORD=<password>
 SECURITY_PERMIT_ALL=true
 CORS_ORIGINS=*
+DEMO_SEED_ENABLED=true
 ```
 
 Render отдаёт `postgres://…` URL; Spring ждёт JDBC-строку `jdbc:postgresql://…`.
@@ -77,6 +101,7 @@ DB_USER=${PGUSER}
 DB_PASSWORD=${PGPASSWORD}
 SECURITY_PERMIT_ALL=true
 CORS_ORIGINS=*
+DEMO_SEED_ENABLED=true
 ```
 
 4. Dockerfile path: `backend/Dockerfile`

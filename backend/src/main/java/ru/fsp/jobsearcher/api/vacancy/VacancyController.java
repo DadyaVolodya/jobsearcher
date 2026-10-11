@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -38,6 +39,11 @@ public class VacancyController {
     @PostMapping
     public Vacancy create(@RequestBody VacancyService.CreateRequest req) {
         return vacancyService.create(securityUtils.requireCurrentUser(), req);
+    }
+
+    @PutMapping("/{id}")
+    public Vacancy update(@PathVariable UUID id, @RequestBody VacancyService.CreateRequest req) {
+        return vacancyService.update(securityUtils.requireCurrentUser(), id, req);
     }
 
     @PostMapping("/{id}/applications")

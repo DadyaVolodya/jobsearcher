@@ -19,6 +19,10 @@ docker compose -f docker-compose.demo.yml up -d --build
 
 Демо-логины: `candidate1@example.com` / `employer1@example.com` (роль выбирается в UI).
 
+Если стенд уже запускался со старой V5 и Flyway сообщает о checksum mismatch,
+пересоздайте демо-базу по [инструкции обновления](docs/DEMO_CLOUD.md#обновление-стенда-со-старой-v5).
+Это удалит данные демо-стека.
+
 ## Backend only
 
 ```bash

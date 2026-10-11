@@ -24,6 +24,7 @@ services:
       DB_USER: jobsearcher
       DB_PASSWORD: ${DB_PASSWORD:-jobsearcher}
       SECURITY_PERMIT_ALL: "true"
+      DEMO_SEED_ENABLED: "true"
       OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
       INFERECO_API_KEY: ${INFERECO_API_KEY:-}
       STORAGE_ROOT: /data/uploads

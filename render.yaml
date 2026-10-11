@@ -13,6 +13,8 @@ services:
     envVars:
       - key: SECURITY_PERMIT_ALL
         value: "true"
+      - key: DEMO_SEED_ENABLED
+        value: "true"
       - key: CORS_ORIGINS
         value: "*"
       - key: STORAGE_ROOT

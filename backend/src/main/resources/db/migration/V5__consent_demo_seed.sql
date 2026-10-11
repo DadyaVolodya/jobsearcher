@@ -1,60 +1,16 @@
--- Demo catalog for local UI + consent document version labels.
--- Replaces auto-created demo accounts (candidate1/employer1@example.com) with rich seed data.
-
+-- Optional demo catalog. Existing accounts and all their data are preserved.
 DO $$
-DECLARE
-  emails TEXT[] := ARRAY[
+BEGIN
+  IF '${demoSeedEnabled}' <> 'true' THEN
+    RETURN;
+  END IF;
+  IF EXISTS (SELECT 1 FROM app_user WHERE email IN (
     'candidate1@example.com','candidate2@example.com','candidate3@example.com',
     'employer1@example.com','employer2@example.com'
-  ];
-BEGIN
-  DELETE FROM chat_message WHERE thread_id IN (
-    SELECT ct.id FROM chat_thread ct
-    JOIN invitation i ON i.id = ct.invitation_id
-    JOIN candidate_profile cp ON cp.id = i.candidate_id
-    JOIN app_user u ON u.id = cp.user_id
-    WHERE u.email = ANY (emails)
-  );
-  DELETE FROM chat_thread WHERE invitation_id IN (
-    SELECT i.id FROM invitation i
-    JOIN candidate_profile cp ON cp.id = i.candidate_id
-    JOIN app_user u ON u.id = cp.user_id
-    WHERE u.email = ANY (emails)
-  );
-  DELETE FROM invitation WHERE candidate_id IN (
-    SELECT cp.id FROM candidate_profile cp JOIN app_user u ON u.id = cp.user_id WHERE u.email = ANY (emails)
-  ) OR employer_id IN (
-    SELECT ep.id FROM employer_profile ep JOIN app_user u ON u.id = ep.user_id WHERE u.email = ANY (emails)
-  );
-  DELETE FROM vacancy_application WHERE candidate_id IN (
-    SELECT cp.id FROM candidate_profile cp JOIN app_user u ON u.id = cp.user_id WHERE u.email = ANY (emails)
-  ) OR vacancy_id IN (
-    SELECT v.id FROM vacancy v
-    JOIN employer_profile ep ON ep.id = v.employer_id
-    JOIN app_user u ON u.id = ep.user_id
-    WHERE u.email = ANY (emails)
-  );
-  DELETE FROM vacancy WHERE employer_id IN (
-    SELECT ep.id FROM employer_profile ep JOIN app_user u ON u.id = ep.user_id WHERE u.email = ANY (emails)
-  );
-  DELETE FROM employer_need WHERE employer_id IN (
-    SELECT ep.id FROM employer_profile ep JOIN app_user u ON u.id = ep.user_id WHERE u.email = ANY (emails)
-  );
-  DELETE FROM fsp_achievement WHERE candidate_id IN (
-    SELECT cp.id FROM candidate_profile cp JOIN app_user u ON u.id = cp.user_id WHERE u.email = ANY (emails)
-  );
-  DELETE FROM grade_change_log WHERE candidate_id IN (
-    SELECT cp.id FROM candidate_profile cp JOIN app_user u ON u.id = cp.user_id WHERE u.email = ANY (emails)
-  );
-  DELETE FROM test_session WHERE candidate_id IN (
-    SELECT cp.id FROM candidate_profile cp JOIN app_user u ON u.id = cp.user_id WHERE u.email = ANY (emails)
-  );
-  DELETE FROM survey_session WHERE user_id IN (SELECT id FROM app_user WHERE email = ANY (emails));
-  DELETE FROM user_consent WHERE user_id IN (SELECT id FROM app_user WHERE email = ANY (emails));
-  DELETE FROM candidate_profile WHERE user_id IN (SELECT id FROM app_user WHERE email = ANY (emails));
-  DELETE FROM employer_profile WHERE user_id IN (SELECT id FROM app_user WHERE email = ANY (emails));
-  DELETE FROM app_user WHERE email = ANY (emails);
-END $$;
+  )) THEN
+    RAISE NOTICE 'Demo seed skipped: existing accounts must be preserved';
+    RETURN;
+  END IF;
 
 INSERT INTO app_user (id, keycloak_sub, email, role, email_verified, created_at, updated_at) VALUES
 ('a1000001-0000-4000-8000-000000000001', 'dev-candidate1@example.com', 'candidate1@example.com', 'CANDIDATE', TRUE, NOW(), NOW()),
@@ -164,3 +120,5 @@ INSERT INTO vacancy (
  'Автотесты API и UI, работа в продуктовой команде.',
  'IT', 'QA', 'JUNIOR', '["Java","Selenium","Postman"]'::jsonb,
  110000, 160000, 'PUBLISHED', NOW(), NOW());
+
+END $$;

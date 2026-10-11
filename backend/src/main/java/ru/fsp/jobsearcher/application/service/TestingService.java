@@ -11,6 +11,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.fsp.jobsearcher.api.common.ApiException;
@@ -61,8 +62,6 @@ public class TestingService {
             throw ApiException.badState("Нет заданий для выбранной категории");
         }
         List<Map<String, Object>> items = TestSessionAssembler.assemble(bank, seed, Math.min(8, bank.size()));
-        // strip expected for client response later in controller DTO if needed - keep server-side for grading
-        List<Map<String, Object>> publicItems = items.stream().map(this::publicItem).toList();
 
         TestSession session = new TestSession();
         session.setId(attemptId);
@@ -77,9 +76,7 @@ public class TestingService {
         session.setProctorEvents(new ArrayList<>());
         session.setSectionScores(new HashMap<>());
         session.setStartedAt(Instant.now());
-        TestSession saved = testSessionRepository.save(session);
-        saved.setItems(publicItems);
-        return saved;
+        return publicSession(testSessionRepository.save(session));
     }
 
     @Transactional
@@ -112,9 +109,9 @@ public class TestingService {
         }
         if (normalized.contains("COPY")) {
             // soft signal - keep going but record
-            return testSessionRepository.save(session);
+            return publicSession(testSessionRepository.save(session));
         }
-        return testSessionRepository.save(session);
+        return publicSession(testSessionRepository.save(session));
     }
 
     @Transactional(readOnly = true)
@@ -125,8 +122,7 @@ public class TestingService {
         if (!session.getCandidateId().equals(profile.getId()) && user.role() != UserRole.ADMIN) {
             throw ApiException.forbidden("Чужой тест");
         }
-        session.setItems(session.getItems().stream().map(this::publicItem).toList());
-        return session;
+        return publicSession(session);
     }
 
     private TestSession finalizeSession(CandidateProfile profile, TestSession session, String failReason) {
@@ -186,8 +182,7 @@ public class TestingService {
         log.setChangedAt(Instant.now());
         gradeChangeLogRepository.save(log);
 
-        session.setItems(session.getItems().stream().map(this::publicItem).toList());
-        return session;
+        return publicSession(session);
     }
 
     private TestSession ownedInProgress(CurrentUser user, CandidateProfile profile, UUID sessionId) {
@@ -213,6 +208,14 @@ public class TestingService {
         return Stream.concat(junior.stream(), targetItems.stream())
                 .collect(Collectors.toMap(TestItem::getId, Function.identity(), (a, b) -> a, LinkedHashMap::new))
                 .values().stream().toList();
+    }
+
+    private TestSession publicSession(TestSession session) {
+        // Keep the managed entity intact: expected answers must remain in items_json.
+        TestSession response = new TestSession();
+        BeanUtils.copyProperties(session, response);
+        response.setItems(session.getItems().stream().map(this::publicItem).toList());
+        return response;
     }
 
     private Map<String, Object> publicItem(Map<String, Object> item) {
